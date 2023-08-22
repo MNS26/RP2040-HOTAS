@@ -7,7 +7,8 @@
 #include "HID_rep.hpp"
 #include "pio_usb.h"
 #endif
-#include "btn_axis.hpp"
+#include "buttons.hpp"
+#include "axis.hpp"
 
 /*== LED ==*/
 #include <Adafruit_NeoPixel.h>
@@ -18,16 +19,16 @@
 uint8_t const desc_hid_report[] = 
 {
   TUD_HID_REPORT_DESC_AXIS(HID_REPORT_ID(1)),
+	//TUD_HID_REPORT_DESC_BUTTONS(HID_REPORT_ID(1)),
   TUD_HID_REPORT_DESC_GENERIC_INOUT(64)
 };
 
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, DATA_PIN, NEO_GRB + NEO_KHZ800);
-int interval = 2;
-Adafruit_USBD_HID hid(desc_hid_report, sizeof(desc_hid_report), HID_ITF_PROTOCOL_NONE, interval, true);
+Adafruit_USBD_HID hid(desc_hid_report, sizeof(desc_hid_report), HID_ITF_PROTOCOL_NONE, 2, true);
 
 // Create an instance of the joystick report data struct
-JoystickAxisReport joystickReport = {
+JoystickReport joystickReport = {
   //.XYZ = 0,
   //.RxRyRz = 0,
   //.VxVyVz = 0,
@@ -38,7 +39,6 @@ JoystickAxisReport joystickReport = {
   //.hat = 0,
   //.thumbstickYX = 0,
 };
-JoystickButtonsReport joystickButtonReport;
 int timeout,timer,speed=1,i;
 
 // Invoked when received GET_REPORT control request
@@ -91,7 +91,7 @@ void setup()
 	// wait until device mounted
 	while (!TinyUSBDevice.mounted())
 	{	}
-	int count = sizeof(joystickButtonReport) / sizeof(bool);  // 10
+	int count = sizeof(joystickReport) / sizeof(bool);  // 10
 }
 bool invert(bool input){
 	if(input)
@@ -112,7 +112,7 @@ void loop()
   {
     // Wake up host if we are in suspend mode
     // and REMOTE_WAKEUP feature is enabled by host
-    TinyUSBDevice.remoteWakeup();
+    //TinyUSBDevice.remoteWakeup();
   }
 	if(!TinyUSBDevice.ready())
 	{
@@ -123,29 +123,25 @@ void loop()
 	}
 	delay(1);
   i+=speed;
-	if(i < 1 || i > 1022)
+	if(i < 1 || i > 1023)
 		speed=-speed;
 
 	setAxisValue(&joystickReport, X,      i);
 	setAxisValue(&joystickReport, Y,      i);
-	setAxisValue(&joystickReport, Z,      i);
-	setAxisValue(&joystickReport, Rx,     i);
-	setAxisValue(&joystickReport, Ry,     i);
-	setAxisValue(&joystickReport, Rz,     i);
+	//setAxisValue(&joystickReport, Z,      i);
+	//setAxisValue(&joystickReport, Rx,     i);
+	//setAxisValue(&joystickReport, Ry,     i);
+	//setAxisValue(&joystickReport, Rz,     i);
 	//setAxisValue(&joystickReport, Vx,     i);
 	//setAxisValue(&joystickReport, Vy,     0);
 	//setAxisValue(&joystickReport, Vz,     0);
-	setAxisValue(&joystickReport, Slider, i);
-	setAxisValue(&joystickReport, Dial,   i);
-	setAxisValue(&joystickReport, Wheel,  i);
-	if (i<14)
-	setAxisValue(&joystickReport, MouseX, i);
-  setAxisValue(&joystickReport, MouseY, i);
-	for (int i = 0; i < 80; i++)
-  {
-  }
+	//setAxisValue(&joystickReport, Slider, i);
+	//setAxisValue(&joystickReport, Dial,   i);
+	//setAxisValue(&joystickReport, Wheel,  i);
+	//if (i<14)
+	//setAxisValue(&joystickReport, MouseX, 0);
+  //setAxisValue(&joystickReport, MouseY, 0);
 
-	//setButtonState(&joystickReport,joystickReport.buttons1,random(0,UINT16_MAX));
 	hid.sendReport(1, &joystickReport, sizeof(joystickReport));
 //	hid.sendReport(2, &joystickButtonReport, sizeof(joystickButtonReport));
 }

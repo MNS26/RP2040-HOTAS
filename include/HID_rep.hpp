@@ -1,5 +1,7 @@
-struct JoystickAxisReport
+struct JoystickReport
 {
+  //union HID_rep
+  //{
   uint32_t  X:10,
             Y:10,
             Z:10;     // The X,Y, Z axis position
@@ -11,16 +13,10 @@ struct JoystickAxisReport
   uint32_t  Slider:10,
             Dial:10,
             Wheel:10;    // The slider, Dial, Wheel position
+  
+  uint8_t  hat:8;       // The hat position
 
-  uint16_t  hat:8,       // The hat position
-            thumbstickX:4,
-            thumbstickY:4;
-}__attribute__((packed));
-
-typedef union JoystickButtonsReport
-{
-
-  uint8_t  buttons0:1,
+  uint16_t  buttons0:1,
             buttons1:1,
             buttons2:1,
             buttons3:1,
@@ -35,8 +31,36 @@ typedef union JoystickButtonsReport
             buttons12:1,
             buttons13:1,
             buttons14:1,
-            buttons15:1,
-            buttons16:1,
+            buttons15:1;
+
+  uint8_t   thumbstickX:4,
+            thumbstickY:4;
+
+  //};//__attribute__((packed));
+
+
+  
+};//
+struct ButtonReport
+{
+  uint16_t  buttons0:1,
+            buttons1:1,
+            buttons2:1,
+            buttons3:1,
+            buttons4:1,
+            buttons5:1,
+            buttons6:1,
+            buttons7:1,
+            buttons8:1,
+            buttons9:1,
+            buttons10:1,
+            buttons11:1,
+            buttons12:1,
+            buttons13:1,
+            buttons14:1,
+            buttons15:1;
+            
+  uint16_t  buttons16:1,
             buttons17:1,
             buttons18:1,
             buttons19:1,
@@ -104,3 +128,4 @@ typedef union JoystickButtonsReport
             buttons78:1,
             buttons79:1;
 };
+

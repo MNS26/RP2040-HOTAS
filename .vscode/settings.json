@@ -70,4 +70,5 @@
 	"editor.tabSize": 2,
 	"cmake.configureOnOpen": true,
 	"C_Cpp.errorSquiggles": "enabled",
+	"python.analysis.typeCheckingMode": "basic",
 }
