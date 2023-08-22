@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
 
     # Setting configs
     self.settings = None
-    self.app_path = AppConfig.app_path
+    self.app_path = AppConfig.path
     self.path_config = AppConfig.path_config
     self.configfile = AppConfig.configfile
 

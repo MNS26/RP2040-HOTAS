@@ -62,10 +62,10 @@ class Settings(QWidget):
 
     # Add tabds to page
     tab.addTab(journal_page,"Journal")
-    tab.addTab(coriolis_page, "Coriolis")
-    tab.addTab(eddn_page, "EDDN")
-    tab.addTab(edsm_page, "EDSM")
-    tab.addTab(inara_page, "Inara")
+    #tab.addTab(coriolis_page, "Coriolis")
+    #tab.addTab(eddn_page, "EDDN")
+    #tab.addTab(edsm_page, "EDSM")
+    #tab.addTab(inara_page, "Inara")
     main_layout.addWidget(tab,0,0)
 
 
