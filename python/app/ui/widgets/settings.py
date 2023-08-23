@@ -41,8 +41,9 @@ class Settings(QWidget):
     journal_page.setLayout(layout)
 
     file_browser_btn = QPushButton('Browse')
-    file_browser_btn.clicked.connect(lambda: self.locate_journal('Journal'))
-    self.directory = QLineEdit()    
+    file_browser_btn.clicked.connect(lambda: self.open_directory_dialog('Journal'))
+    self.directory = QLineEdit()
+    self.directory.setReadOnly(True)
     
     self.directory.setText(self.appconfig.game_log_dir)
 
@@ -50,6 +51,7 @@ class Settings(QWidget):
     layout.addWidget(self.directory, 0, 1, alignment=Qt.AlignmentFlag.AlignTop)
     layout.addWidget(file_browser_btn, 0 ,2, alignment=Qt.AlignmentFlag.AlignTop)
     return journal_page
+
 
   def coriolis(self):
     # Coriolis tab
@@ -79,7 +81,12 @@ class Settings(QWidget):
     inara_page.setLayout(layout)
     return inara_page
 
-  def locate_journal(self,section ):
+
+
+
+  def open_directory_dialog(self,section=None ):
+    print(self.appconfig.game_log_dir)
+
     # Open the file dialog in the specified directory
     initial_directory = str(Path.home()) if self.appconfig.game_log_dir == "" else self.appconfig.game_log_dir
     selected_directory = QFileDialog.getExistingDirectory(self, "Select Journal directory", initial_directory)

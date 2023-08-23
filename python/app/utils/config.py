@@ -41,8 +41,8 @@ class AppConfig:
     config = configparser.ConfigParser()
     config.read(config_file_path)
 
-    if 'Journal' in config and 'directory' in config['Journal']:
-      AppConfig.game_log_dir = config['Journal']['directory']
+    if 'Logs' in config and 'directory' in config['Logs']:
+      AppConfig.game_log_dir = config['Logs']['directory']
 
 
   def save_setting(self, section, parameter, value):
@@ -66,7 +66,7 @@ class AppConfig:
       config.write(config_file)
 
 
-  def read_setting(self, section, parameter):
+  def read_config(self, section, parameter):
     config = configparser.ConfigParser()
 
     try:

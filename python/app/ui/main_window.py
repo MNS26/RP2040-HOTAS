@@ -2,9 +2,8 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QTextEdit
 
+from ..utils.filemonitor import JournalMonitor
 from ..utils.config import AppConfig
-from ..utils.monitor import JournalLogs, StatusLog, ShipyardLog
-
 from .widgets.menubar import MenuBar
 from .widgets.toolbar import ToolBar
 from .widgets.statusbar import StatusBar
@@ -23,6 +22,13 @@ class MainWindow(QMainWindow):
     """
     Initialize the Main-Window.
     """
+
+    """
+    Initialize all threads different threads
+    """
+    journalMonitor = JournalMonitor()
+    journalMonitor.start(AppConfig.game_log_dir)
+    
     super().__init__()
 
     # Setting configs
