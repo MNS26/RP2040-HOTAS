@@ -40,3 +40,4 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+python/config.cfg
