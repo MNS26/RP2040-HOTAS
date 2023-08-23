@@ -1,16 +1,16 @@
-''' app/utils/filemonitor.py '''
-from .config import AppConfig
+''' app/utils/monitor/cargo.py '''
+from ..config import AppConfig
 import os
 import re
 from threading import Thread
 import time
+import json
 
-class JournalMonitor:
+class Cargo(Thread):
   def __init__(self):
     self.AppConfig = AppConfig()
     self.directory = self.AppConfig.game_log_dir
-    self.latest_file = None
-    self.monitoring_thread = Thread(target=self.monitor_file_changes)
+    self.monitoring_thread = Thread(target=self.monitor_file_changes,name="Cargo.json Monitor")
     self.monitoring_thread.daemon = True
     self.is_running = False
 
@@ -35,15 +35,13 @@ class JournalMonitor:
         time.sleep(0.1)
         continue
 
-      journal_files = [file for file in os.listdir(self.directory) if re.match(r'Journal\.\d{4}-\d{2}-\d{2}T\d{6}\.\d{2}\.log', file)]
+      ShipyardFile = os.path.join(str(self.directory),'Cargo.json') 
 
-      if journal_files:
-        self.latest_file = max(journal_files)
-        print(f"Accessing latest Journal: {self.latest_file}")
+      if ShipyardFile:
+        print(f"Accessing latest Cargo.json")
       else:
-        print(f"No Journal found in: {self.directory}")  
+        print(f"No NavRoute.json found in: {self.directory}")  
         pass
 
-      time.sleep(5)
-
+      time.sleep(1)
       

@@ -2,7 +2,15 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QTextEdit
 
-from ..utils.filemonitor import JournalMonitor
+from ..utils.monitor.journal import Journal
+from ..utils.monitor.status import Status
+from ..utils.monitor.shipyard import Shipyard
+from ..utils.monitor.market import Market
+from ..utils.monitor.modulesinfo import ModulesInfo
+from ..utils.monitor.navroute import NavRoute
+from ..utils.monitor.outfitting import Outfitting
+from ..utils.monitor.cargo import Cargo
+
 from ..utils.config import AppConfig
 from .widgets.menubar import MenuBar
 from .widgets.toolbar import ToolBar
@@ -26,9 +34,26 @@ class MainWindow(QMainWindow):
     """
     Initialize all threads different threads
     """
-    journalMonitor = JournalMonitor()
-    journalMonitor.start(AppConfig.game_log_dir)
-    
+    #journalMonitor = Journal()
+    #journalMonitor.start(AppConfig.game_log_dir)
+    StatusMonitor = Status()
+    StatusMonitor.start(AppConfig.game_log_dir)
+    #ShipyardMonitor = Shipyard()
+    #ShipyardMonitor.start(AppConfig.game_log_dir)
+    #OutfittingMonitor = Outfitting()
+    #OutfittingMonitor.start(AppConfig.game_log_dir)
+    #MarketMonitor = Market()
+    #MarketMonitor.start(AppConfig.game_log_dir)
+    #ModulesInfoMonitor = ModulesInfo()
+    #ModulesInfoMonitor.start(AppConfig.game_log_dir)
+    #NavRouteMonitor = NavRoute()
+    #NavRouteMonitor.start(AppConfig.game_log_dir)
+    #CargoMonitor = Cargo()
+    #CargoMonitor.start(AppConfig.game_log_dir)
+
+
+
+
     super().__init__()
 
     # Setting configs
