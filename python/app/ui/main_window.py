@@ -27,9 +27,8 @@ class MainWindow(QMainWindow):
 
     # Setting configs
     self.settings = None
-    self.app_path = AppConfig.path
-    self.path_config = AppConfig.path_config
-    self.configfile = AppConfig.configfile
+    self.app_path = AppConfig.main_dir
+    self.path_config = AppConfig.config_file_path
 
     # Window-Settings
     self.setWindowTitle(AppConfig.APP_NAME)
@@ -67,16 +66,6 @@ class MainWindow(QMainWindow):
 
 
     # Top Toolbar Buttons
-    #self.topbar.add_button(
-    #  "Open",
-    #  self.app_path + "/resources/assets/icons/window/file.ico",
-    #  self.open_file)
-    
-    #self.topbar.add_button(
-    #  "Save",
-    #  self.app_path + "/resources/assets/icons/window/save.ico",
-    #  self.save_file)
-    
     self.topbar.add_button(
       "Settings", 
       self.app_path + "/resources/assets/icons/window/settings.ico",
@@ -93,13 +82,6 @@ class MainWindow(QMainWindow):
       "Exit",
       self.app_path + "/resources/assets/icons/window/exit.ico",
       self.exit_app)
-
-
-    # Right Toolbar Buttons
-    #self.rightbar.add_separator()
-    #self.rightbar.add_button(
-    #  "Privacy",
-    #  self.app_path + "/resources/assets/icons/window/shell32-167.ico", self.privacy_window)
 
 
     self.addToolBar(
@@ -119,18 +101,6 @@ class MainWindow(QMainWindow):
     """
     return QTextEdit(self)
 
-  def open_file(self) -> None:
-    """
-    Event handler for the "Open" button. Displays the "Open File" dialog.
-    """
-    print("Open")
-
-  def save_file(self) -> None:
-    """
-    Event handler for the "Save" button. Displays the "Save File" dialog.
-    """
-    print("Save")
-
   def exit_app(self) -> None:
     """
     Event handler for the "Exit" button. Closes the application.
@@ -139,27 +109,27 @@ class MainWindow(QMainWindow):
       self.settings.close()
     self.close()
 
-  #def settings_window(self) -> None:
-  def settings_window(self):
+
+  def settings_window(self) -> None:
     """
     Event handler for the "Settings" button. Displays the "Settings" window.
     """
     if self.settings is None:
-      self.settings = Settings()
-      self.settings.directory.textChanged.connect(lambda x: self.save_log_dir(x))
+        self.settings = Settings()
 
-    self.settings.directory.text = AppConfig.game_log_dir   # type: ignore
-    self.settings.window().move(self.pos())                 # type: ignore
+    # Set the settings window as modal
+    #self.settings.setWindowModality(Qt.WindowModality.WindowModal)
+
+    # Set the position of the settings window relative to the main window
+    self.settings.move(self.pos())
+
+    # Show the settings window
+    self.settings.activateWindow()
     self.settings.show()
-    
+
+
   def privacy_window(self) -> None:
     """
     Event handler for the "Privacy" button. Displays the "Privacy" window.
     """
     print("privacy_window")
-
-  def save_log_dir(self,dir=None):
-    if AppConfig.game_log_dir != str(dir) or not None:
-      AppConfig.game_log_dir = str(dir)
-
-    
