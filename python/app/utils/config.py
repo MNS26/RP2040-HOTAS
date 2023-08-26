@@ -41,8 +41,8 @@ class AppConfig:
     config = configparser.ConfigParser()
     config.read(config_file_path)
 
-    if 'Logs' in config and 'directory' in config['Logs']:
-      AppConfig.game_log_dir = config['Logs']['directory']
+    if 'Elite Dangerous Logs' in config and 'directory' in config['Elite Dangerous Logs']:
+      AppConfig.game_log_dir = config['Elite Dangerous Logs']['directory']
 
 
   def save_setting(self, section, parameter, value):

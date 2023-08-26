@@ -1,21 +1,16 @@
 ''' app/ui/main_window.py '''
+import os
+import re
+import hid
+import json
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QTextEdit
 
-from ..utils.monitor.journal import Journal
-from ..utils.monitor.status import Status
-from ..utils.monitor.shipyard import Shipyard
-from ..utils.monitor.market import Market
-from ..utils.monitor.modulesinfo import ModulesInfo
-from ..utils.monitor.navroute import NavRoute
-from ..utils.monitor.outfitting import Outfitting
-from ..utils.monitor.cargo import Cargo
-
 from ..utils.config import AppConfig
+from ..utils.filewatcher import FileWatcher
 from .widgets.menubar import MenuBar
 from .widgets.toolbar import ToolBar
 from .widgets.statusbar import StatusBar
-from .widgets.treeview import TreeView
 from .widgets.settings import Settings
 
 class MainWindow(QMainWindow):
@@ -25,41 +20,26 @@ class MainWindow(QMainWindow):
   Args:
   QMainWindow (QMainWindow): Inheritance
   """
-
+  # default is TinyUSB (0xcafe), Adafruit (0x239a), RaspberryPi (0x2e8a), Espressif (0x303a) VID
+  USB_VID = (0xcafe, 0x239a, 0x2e8a, 0x303a)
+  
   def __init__(self) -> None:
     """
     Initialize the Main-Window.
     """
-
-    """
-    Initialize all threads different threads
-    """
-    #journalMonitor = Journal()
-    #journalMonitor.start(AppConfig.game_log_dir)
-    StatusMonitor = Status()
-    StatusMonitor.start(AppConfig.game_log_dir)
-    #ShipyardMonitor = Shipyard()
-    #ShipyardMonitor.start(AppConfig.game_log_dir)
-    #OutfittingMonitor = Outfitting()
-    #OutfittingMonitor.start(AppConfig.game_log_dir)
-    #MarketMonitor = Market()
-    #MarketMonitor.start(AppConfig.game_log_dir)
-    #ModulesInfoMonitor = ModulesInfo()
-    #ModulesInfoMonitor.start(AppConfig.game_log_dir)
-    #NavRouteMonitor = NavRoute()
-    #NavRouteMonitor.start(AppConfig.game_log_dir)
-    #CargoMonitor = Cargo()
-    #CargoMonitor.start(AppConfig.game_log_dir)
-
-
-
-
     super().__init__()
+    self.appconfig = AppConfig()
+    self.fs_watcher = FileWatcher()
+
 
     # Setting configs
     self.settings = None
-    self.app_path = AppConfig.main_dir
+    self.app_path = self.appconfig.main_dir
     self.path_config = AppConfig.config_file_path
+    self.game_log_directory = str(self.appconfig.read_config('Elite Dangerous Logs','directory'))
+
+    self.fs_watcher.initialize(self.game_log_directory)
+    self.fs_watcher.start()
 
     # Window-Settings
     self.setWindowTitle(AppConfig.APP_NAME)
@@ -71,8 +51,10 @@ class MainWindow(QMainWindow):
     central_widget.setLayout(layout)
 
     # Create Widgets
-    self.treeview = self.create_treeview()
     self.editbox = self.create_edit()
+
+    self.editbox2 = self.create_edit2()
+    self.editbox2.setReadOnly(True)
 
     self.create_toolbars()
 
@@ -80,10 +62,16 @@ class MainWindow(QMainWindow):
     self.setMenuBar(MenuBar(self))
     self.setStatusBar(StatusBar(self))
 
-    layout.addWidget(self.treeview)
     layout.addWidget(self.editbox, stretch=1)
     layout.addWidget(self.editbox)
+    
+    layout.addWidget(self.editbox2, stretch=1)
+    layout.addWidget(self.editbox2)
+    
+  
+  
 
+  
   def create_toolbars(self) -> None:
     """
     Creates and adds the top and right toolbars to the main window.
@@ -119,14 +107,13 @@ class MainWindow(QMainWindow):
       Qt.ToolBarArea.TopToolBarArea,
       self.topbar)
 
-  def create_treeview(self) -> TreeView:
-    """
-    Creates and adds the tree view widget to the main window.
-    """
-    return TreeView(self)
-
-
   def create_edit(self) -> QTextEdit:
+    """
+    Creates and adds the QTextEdit widget to the main window.
+    """
+    return QTextEdit(self)
+
+  def create_edit2(self) -> QTextEdit:
     """
     Creates and adds the QTextEdit widget to the main window.
     """
@@ -136,8 +123,12 @@ class MainWindow(QMainWindow):
     """
     Event handler for the "Exit" button. Closes the application.
     """
+    if self.fs_watcher is not None:
+      self.fs_watcher.stop
+
     if self.settings is not None:
       self.settings.close()
+    
     self.close()
 
 
@@ -147,9 +138,7 @@ class MainWindow(QMainWindow):
     """
     if self.settings is None:
         self.settings = Settings()
-
-    # Set the settings window as modal
-    #self.settings.setWindowModality(Qt.WindowModality.WindowModal)
+        self.settings.directory.textChanged.connect(lambda x: self.fs_watcher.update_directory(x))
 
     # Set the position of the settings window relative to the main window
     self.settings.move(self.pos())
@@ -164,3 +153,4 @@ class MainWindow(QMainWindow):
     Event handler for the "Privacy" button. Displays the "Privacy" window.
     """
     print("privacy_window")
+

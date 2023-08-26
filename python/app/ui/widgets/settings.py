@@ -12,10 +12,10 @@ class Settings(QWidget):
   def __init__(self):
 
     # Generate settings window
-    self.appconfig = AppConfig()
     super(Settings, self).__init__()
     self.setWindowTitle("Settings")
     self.setGeometry(0, 0,  650, 500)
+    self.appconfig = AppConfig()
 
 
 
@@ -41,7 +41,7 @@ class Settings(QWidget):
     journal_page.setLayout(layout)
 
     file_browser_btn = QPushButton('Browse')
-    file_browser_btn.clicked.connect(lambda: self.open_directory_dialog('Journal'))
+    file_browser_btn.clicked.connect(lambda: self.open_directory_dialog('Elite Dangerous Logs'))
     self.directory = QLineEdit()
     self.directory.setReadOnly(True)
     
@@ -85,7 +85,6 @@ class Settings(QWidget):
 
 
   def open_directory_dialog(self,section=None ):
-    print(self.appconfig.game_log_dir)
 
     # Open the file dialog in the specified directory
     initial_directory = str(Path.home()) if self.appconfig.game_log_dir == "" else self.appconfig.game_log_dir
