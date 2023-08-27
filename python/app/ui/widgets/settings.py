@@ -1,8 +1,12 @@
 ''' app/ui/widgets/treeview.py '''
+import sys
+import hid
 from ...utils.config import AppConfig
+from .devicelist import DeviceList
 from pathlib import Path 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import  QLabel, QWidget, QPushButton, QFileDialog, QGridLayout, QLineEdit, QTabWidget
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import  QLabel, QWidget, QPushButton, QFileDialog, QGridLayout, QLineEdit, QTabWidget, QComboBox
 
 class Settings(QWidget):
   """
@@ -27,6 +31,7 @@ class Settings(QWidget):
     tab = QTabWidget(self)
 
     # Add tabds to page
+    tab.addTab(self.usb_device(),"USB")
     tab.addTab(self.journal(),"Journal")
     #tab.addTab(coriolis_page, "Coriolis")
     #tab.addTab(eddn_page, "EDDN")
@@ -34,7 +39,24 @@ class Settings(QWidget):
     #tab.addTab(inara_page, "Inara")
     main_layout.addWidget(tab,0,0)
 
-  def journal(self):
+
+
+  def usb_device(self) -> QWidget:
+    # USB tab
+    devicelist = DeviceList
+    usb_page = QWidget(self)
+    layout = QGridLayout()
+    usb_page.setLayout(layout)
+
+    combobox1 = QComboBox()
+    devicelist.populate_device_combo(combobox1)
+  
+    
+    layout.addWidget(combobox1,0,0,alignment=Qt.AlignmentFlag.AlignTop)
+
+    return usb_page
+
+  def journal(self) -> QWidget:
     # Journal tab
     journal_page = QWidget(self)
     layout = QGridLayout()
@@ -52,39 +74,35 @@ class Settings(QWidget):
     layout.addWidget(file_browser_btn, 0 ,2, alignment=Qt.AlignmentFlag.AlignTop)
     return journal_page
 
-
-  def coriolis(self):
+  def coriolis(self) -> QWidget:
     # Coriolis tab
     coriolis_page = QWidget(self)
     layout = QGridLayout()
     coriolis_page.setLayout(layout)
     return coriolis_page
   
-  def eddn(self):
+  def eddn(self) -> QWidget:
     # EDDN tab
     eddn_page = QWidget(self)
     layout = QGridLayout()
     eddn_page.setLayout(layout)
     return eddn_page
   
-  def edsm(self):
+  def edsm(self) -> QWidget:
     # EDSM tab
     edsm_page = QWidget(self)
     layout = QGridLayout()
     edsm_page.setLayout(layout)
     return edsm_page
   
-  def inara(self):
+  def inara(self) -> QWidget:
     # Inara tab
     inara_page = QWidget(self)
     layout = QGridLayout()
     inara_page.setLayout(layout)
     return inara_page
 
-
-
-
-  def open_directory_dialog(self,section=None ):
+  def open_directory_dialog(self,section=None ) -> None:
 
     # Open the file dialog in the specified directory
     initial_directory = str(Path.home()) if self.appconfig.game_log_dir == "" else self.appconfig.game_log_dir
