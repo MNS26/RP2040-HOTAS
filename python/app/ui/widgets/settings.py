@@ -2,11 +2,13 @@
 import sys
 import hid
 from ...utils.config import AppConfig
-from .devicelist import DeviceList
+from .devicelist import DeviceListBox
 from pathlib import Path 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import  QLabel, QWidget, QPushButton, QFileDialog, QGridLayout, QLineEdit, QTabWidget, QComboBox
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtWidgets import  QLabel, QWidget, QPushButton, QFileDialog, QGridLayout, QLineEdit, QTabWidget
+
+
 
 class Settings(QWidget):
   """
@@ -15,14 +17,11 @@ class Settings(QWidget):
   """
   def __init__(self):
 
-    # Generate settings window
+    # Initialize settings window
     super(Settings, self).__init__()
     self.setWindowTitle("Settings")
     self.setGeometry(0, 0,  650, 500)
     self.appconfig = AppConfig()
-
-
-
     # Setup Grid
     main_layout = QGridLayout()
     self.setLayout(main_layout)
@@ -39,21 +38,14 @@ class Settings(QWidget):
     #tab.addTab(inara_page, "Inara")
     main_layout.addWidget(tab,0,0)
 
-
-
   def usb_device(self) -> QWidget:
     # USB tab
-    devicelist = DeviceList
+    devicelist = DeviceListBox(self)
     usb_page = QWidget(self)
     layout = QGridLayout()
     usb_page.setLayout(layout)
-
-    combobox1 = QComboBox()
-    devicelist.populate_device_combo(combobox1)
-  
-    
-    layout.addWidget(combobox1,0,0,alignment=Qt.AlignmentFlag.AlignTop)
-
+    devicelist.setInsertPolicy(devicelist.InsertPolicy.NoInsert)
+    layout.addWidget(devicelist,0,0,alignment=Qt.AlignmentFlag.AlignTop)
     return usb_page
 
   def journal(self) -> QWidget:

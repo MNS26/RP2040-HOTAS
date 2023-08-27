@@ -1,7 +1,32 @@
 ''' app/ui/widgets/devicelist.py '''
 
+import typing
 import hid
-class DeviceList:
+from PyQt6.QtWidgets import QComboBox,QWidget
+
+
+class DeviceListBox(QComboBox):
+  def __init__(self, parent: QWidget | None = ...) -> None:
+    super().__init__(parent)
+    self.activated.connect(self.refreshItems)
+    self.addItem(self.refreshItems())
+  
+  
+  def refreshItems(self):
+    devices = hid.enumerate()
+    unique_devices = DeviceListBox.filter_unique_devices(devices)
+
+    self.clear()
+    #self.addItem("------")
+    for device_info in unique_devices:
+      device_name = f"{device_info['manufacturer_string']} - {device_info['product_string']}"
+      self.addItem(device_name, userData=device_info)
+
+  def showPopup(self) -> None:
+    self.refreshItems()
+    return super().showPopup()
+
+
   @staticmethod
   def filter_unique_devices(devices) -> list:
     unique_devices = {}
@@ -12,13 +37,3 @@ class DeviceList:
         unique_devices[key] = device_info
 
     return list(unique_devices.values())
-
-  @staticmethod
-  def populate_device_combo(combo_box) -> None:
-    devices = hid.enumerate()
-
-    unique_devices = DeviceList.filter_unique_devices(devices)
-
-    for device_info in unique_devices:
-      device_name = f"{device_info['manufacturer_string']} - {device_info['product_string']}"
-      combo_box.addItem(device_name, userData=device_info)
