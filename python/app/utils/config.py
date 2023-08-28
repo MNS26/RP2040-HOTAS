@@ -8,7 +8,9 @@ class AppConfig:
   """
   APP_NAME: str = "PyQt template"
   # Default is users home directory
+  enable_game_log: bool = False
   game_log_dir: str = ""
+  usb_device: str = ""
 
 
   # Get the directory of the current script
@@ -41,8 +43,15 @@ class AppConfig:
     config = configparser.ConfigParser()
     config.read(config_file_path)
 
-    if 'Elite Dangerous Logs' in config and 'directory' in config['Elite Dangerous Logs']:
-      AppConfig.game_log_dir = config['Elite Dangerous Logs']['directory']
+    if 'Elite Dangerous Logs' in config and 'Enabled' in config['Elite Dangerous Logs']:
+      if 'True' == config['Elite Dangerous Logs']['enabled']:
+        AppConfig.enable_game_log = True
+
+    if 'Elite Dangerous Logs' in config and 'Directory' in config['Elite Dangerous Logs']:
+      AppConfig.game_log_dir = config['Elite Dangerous Logs']['Directory']
+
+    if 'USB device' in config and 'Device' in config['USB device']:
+      AppConfig.usb_device = config['USB device']['Device']
 
 
   def save_setting(self, section, parameter, value):
@@ -66,17 +75,17 @@ class AppConfig:
       config.write(config_file)
 
 
-  def read_config(self, section, parameter):
+  def read_config(self, section, parameter) -> str:
     config = configparser.ConfigParser()
 
     try:
       config.read(AppConfig.config_file_path)
     except FileNotFoundError:
-      return None  # File doesn't exist yet, return None
+      return str(None)  # File doesn't exist yet, return None
 
     # If the section doesn't exist or parameter not found, return None
     if section not in config or parameter not in config[section]:
-      return None
+      return str(None)
 
     # Return the parameter's value
     return config[section][parameter]

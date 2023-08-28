@@ -1,11 +1,9 @@
 ''' app/ui/main_window.py '''
-import os
-import re
-import hid
-import json
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QTextEdit
 
+from .widgets.devicelist import DeviceList
 from ..utils.config import AppConfig
 from ..utils.filewatcher import FileWatcher
 from .widgets.menubar import MenuBar
@@ -28,19 +26,27 @@ class MainWindow(QMainWindow):
     Initialize the Main-Window.
     """
     super().__init__()
+
+    # Setting variables
     self.appconfig = AppConfig()
     self.fs_watcher = FileWatcher()
-
-
-    # Setting configs
-    self.settings = None
+    self.deviceInfo = None
+    self.settings = Settings()
+    
+    self.path_config = self.appconfig.config_file_path
     self.app_path = self.appconfig.main_dir
-    self.path_config = AppConfig.config_file_path
-    self.game_log_directory = str(self.appconfig.read_config('Elite Dangerous Logs','directory'))
+    self.game_log = self.appconfig.game_log_dir
+ 
+        
+    self.settings.directory.textChanged.connect(lambda x: self.fs_watcher.update_directory(x))
+    self.settings.deviceNameChanged.connect(self.handle_user_data_changed)
+    self.settings.deviceDict.connect(lambda x: print(x))
+    self.settings.getCurrentDevice()
 
-    self.fs_watcher.initialize(self.game_log_directory)
+    self.fs_watcher.initialize(self.game_log)
     self.fs_watcher.start()
 
+    
     # Window-Settings
     self.setWindowTitle(AppConfig.APP_NAME)
     self.setGeometry(100, 100, 800, 600)
@@ -62,6 +68,7 @@ class MainWindow(QMainWindow):
     self.setMenuBar(MenuBar(self))
     self.setStatusBar(StatusBar(self))
 
+
     layout.addWidget(self.editbox, stretch=1)
     layout.addWidget(self.editbox)
     
@@ -82,7 +89,7 @@ class MainWindow(QMainWindow):
       orientation=Qt.Orientation.Horizontal,
       style=Qt.ToolButtonStyle.ToolButtonTextUnderIcon,
       icon_size=(24, 24))
-
+    self.topbar.setMovable(False)
 
     # Top Toolbar Buttons
     self.topbar.add_button(
@@ -136,16 +143,18 @@ class MainWindow(QMainWindow):
     """
     Event handler for the "Settings" button. Displays the "Settings" window.
     """
-    if self.settings is None:
-        self.settings = Settings()
-        self.settings.directory.textChanged.connect(lambda x: self.fs_watcher.update_directory(x))
-
+    #if self.settings is None:
+ 
     # Set the position of the settings window relative to the main window
     self.settings.move(self.pos())
 
     # Show the settings window
     self.settings.activateWindow()
     self.settings.show()
+
+  def handle_user_data_changed(self, user_data) -> None:
+    # Do something with the new_user_data in your main window
+    self.appconfig.save_setting('USB device','device',str(user_data))
 
 
   def privacy_window(self) -> None:
