@@ -9,8 +9,9 @@ class AppConfig:
   APP_NAME: str = "PyQt template"
   # Default is users home directory
   enable_game_log: bool = False
-  game_log_dir: str = ""
-  usb_device: str = ""
+  enable_usb: bool = False
+  game_log_dir = ''
+  usb_device = ''
 
 
   # Get the directory of the current script
@@ -49,6 +50,11 @@ class AppConfig:
 
     if 'Elite Dangerous Logs' in config and 'Directory' in config['Elite Dangerous Logs']:
       AppConfig.game_log_dir = config['Elite Dangerous Logs']['Directory']
+
+
+    if 'USB device' in config and 'enabled' in config['USB device']:
+      if 'True' == config['USB device']['enabled']:
+        AppConfig.enable_usb = True
 
     if 'USB device' in config and 'Device' in config['USB device']:
       AppConfig.usb_device = config['USB device']['Device']

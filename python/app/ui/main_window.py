@@ -40,10 +40,10 @@ class MainWindow(QMainWindow):
         
     self.settings.directory.textChanged.connect(lambda x: self.fs_watcher.update_directory(x))
     self.settings.deviceNameChanged.connect(self.handle_user_data_changed)
-    self.settings.deviceDict.connect(lambda x: print(x))
+    self.settings.device.connect(lambda x: print(x))
     self.settings.getCurrentDevice()
 
-    self.fs_watcher.initialize(self.game_log)
+    self.fs_watcher.initialize()
     self.fs_watcher.start()
 
     
