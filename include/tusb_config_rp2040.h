@@ -22,7 +22,7 @@
    IN THE SOFTWARE.
 */
 
-#ifndef _TUSB_CONFIG_RP2040_H_
+#ifndef _TUSB_CONFIG_RP2040_H_ 
 #define _TUSB_CONFIG_RP2040_H_
 
 #ifdef __cplusplus
