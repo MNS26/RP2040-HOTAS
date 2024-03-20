@@ -49,6 +49,7 @@ uint8_t i2cBuffSize = 255;
 uint8_t i2cBuffSizeFree = i2cBuffSize;
 volatile void* i2cBuff = NULL;
 volatile bool NewData = false;
+static char buff[100];
 
 void receive(int len);
 void request();
@@ -76,7 +77,7 @@ void setup() {
 	Wire.begin(i2cADDR);
 
 	Wire.onReceive(receive);
-	//Wire.onRequest(request);
+	Wire.onRequest(request);
 }
 void loop() {
 	if (NewData) {
@@ -135,7 +136,7 @@ void request() {
   char buff[7];
   // Return a simple incrementing hex value
   sprintf(buff, "%06X", (ctr++) % 65535);
-  Wire1.write(buff, 6);
+  Wire.write(buff, 6);
 }
 
 

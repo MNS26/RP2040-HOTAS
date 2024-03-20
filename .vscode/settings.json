@@ -67,7 +67,7 @@
 	},
 	"C_Cpp.dimInactiveRegions": true,
   "editor.insertSpaces": false,
-	"editor.wordBasedSuggestions": true,
+	"editor.wordBasedSuggestions": "matchingDocuments",
 	"editor.suggest.insertMode": "replace",
 	"editor.semanticHighlighting.enabled": true,
 	"editor.tabSize": 2,

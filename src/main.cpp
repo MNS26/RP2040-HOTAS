@@ -18,7 +18,7 @@ bool enableMouseAndKeyboard = 0;
 uint8_t JS_COUNT;
 int COLLECTIONS = MAX_COLLECTIONS;
 
-int AXIS_COUNT = 5;
+int AXIS_COUNT = 0;
 
 hid_Joystick_report_t* jr = nullptr;
 hid_Joystick_report_t* jr_old = nullptr;
@@ -318,9 +318,9 @@ void setup()
 		//hid.setPollInterval(2);
 		//hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
 		//hid_joystick.setStringDescriptor("TinyUSB Joystick");
-		hid_joystick.setReportDescriptor(_hidJoystickReportDesc, _hidJoystickReportDescSize);
-		hid_joystick.setReportCallback(get_report_callback, set_report_callback);
-		hid_joystick.begin();
+		//hid_joystick.setReportDescriptor(_hidJoystickReportDesc, _hidJoystickReportDescSize);
+		//hid_joystick.setReportCallback(get_report_callback, set_report_callback);
+		//hid_joystick.begin();
 	}
 	if (enableMouseAndKeyboard) {
 		hid_kbm.setStringDescriptor("TinyUSB Keyboard/Mouse");
@@ -367,6 +367,8 @@ int timed2 = millis();
 int update_cooldown = micros();
 int count = 0;
 int report = 0;
+static char buff[100];
+
 /*
 	========
 		Loop
@@ -402,28 +404,24 @@ void loop()
 	hue = 0;
 	//if(!TinyUSBDevice.ready() ) { return; }
 	//if (millis() - 10 > timed2) {
-		timed2 = millis();
-	  //hue += 10;  // You can adjust the increment value to control the speed of color change
 
-		//auto led = RGBtoHue(hue, (float)(LED / 31.0f));
-		for (int p = 0; p < 3; p++) {
-			uint16_t _hue = hue + (p * 2 * 65536) / 3;
-			led.R = 0*map_clamped<float>(LED,0,31,0,1);
-			led.G = 255*map_clamped<float>(LED,0,31,0,1);
-			led.B = 0*map_clamped<float>(LED,0,31,0,1);
-			uint32_t _pixel = led.raw;
-			//uint32_t _pixel = rainbow(_hue, 255, 255*map_clamped<float>(31,0,31,0,1), true);
-			auto buffsize = sizeof(command->command_type+command->id);
-			buffsize += sizeof(_pixel);
-			command->command_type = SET_LED;
-			command->id = p;
-			command->data = (uint32_t*)_pixel;
-
-			Wire.beginTransmission(0x21);
-			Wire.write((byte *)i2cBuff, buffsize);
-			Wire.endTransmission();
-			//delay(100);
-		}
+	for (int p = 0; p < 3; p++) {
+		uint16_t _hue = hue + (p * 2 * 65536) / 3;
+		//led.R = 0*map_clamped<float>(LED,0,31,0,1);
+		//led.G = 255*map_clamped<float>(LED,0,31,0,1);
+		//led.B = 0*map_clamped<float>(LED,0,31,0,1);
+		//uint32_t _pixel = led.raw;
+		uint32_t _pixel = rainbow(_hue, 255, 255*map_clamped<float>(31,0,31,0,1), true);
+		auto buffsize = sizeof(command->command_type+command->id);
+		buffsize += sizeof(_pixel);
+		command->command_type = SET_LED;
+		command->id = p;
+		command->data = (uint32_t*)_pixel;
+		Wire.beginTransmission(0x21);
+		Wire.write((byte *)i2cBuff, buffsize);
+		Wire.endTransmission();
+		//delay(100);
+	}
 	//}
 
 
@@ -435,57 +433,36 @@ void loop()
 	//}
 	
 
-	jr[0].rx = jr[1].rx = map_clamped<uint16_t>(analogRead(A0), 200, 1800, 2047, 0);
 
 
-	//if (micros() - lastTime > 5000)
-	//{
-	//	lastTime = micros();
-	//	if (LED >= 31 || LED <= 0)
-	//		speed = -speed;
-	//	LED += speed;
-	//}	
-	//if (i >= 2047 || i <= 0)
-		//speed = -speed;
-		//i += speed;
-		//jr1.x = analogRead(A0);
-		//jr1.y = analogRead(A1);
-		//jr1.z = analogRead(A2);
-		//jr1.rx = i;
-		//jr1.ry = i;
-		//jr1.rz = i;
-		//jr1.slider = i;
-		//jr1.dial = i;
-		//jr1.hat1 = i%8;
-		//jr1.hat2 = i%8;
-		//jr1.buttons = i;
-		if (micros() - 2000 > update_cooldown) {
-		
+	//jr[0].rx = jr[1].rx = map_clamped<uint16_t>(analogRead(A0), 200, 1800, 2047, 0);
+	//if (micros() - 2000 > update_cooldown) {
+	//	update_cooldown = micros();
+	//	if ( jr[report].x != jr_old[report].x      ||
+	//	jr[report].y != jr_old[report].y           ||
+	//	jr[report].z != jr_old[report].z           ||
+	//	jr[report].rx != jr_old[report].rx         ||
+	//	jr[report].ry != jr_old[report].ry         ||
+	//	jr[report].rz != jr_old[report].rz         ||
+	//	jr[report].slider != jr_old[report].slider ||
+	//	jr[report].dial != jr_old[report].dial     ||
+	//	jr[report].hat1 != jr_old[report].hat1     ||
+	//	jr[report].hat2 != jr_old[report].hat2     ||
+	//	jr[report].buttons != jr_old[report].buttons) {
+	//		if( TinyUSBDevice.ready()) {
+	//			hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
+	//			jr_old[report] = jr[report];
+	//		}
+	//		if (TinyUSBDevice.suspended()) {
+	//			TinyUSBDevice.remoteWakeup();
+	//		}
+	//	}
+	//	report++;
+	//	if (report > JS_COUNT)
+	//	report = 0;
+	//}
 
-			update_cooldown = micros();
-			if ( jr[report].x != jr_old[report].x      ||
-			jr[report].y != jr_old[report].y           ||
-			jr[report].z != jr_old[report].z           ||
-			jr[report].rx != jr_old[report].rx         ||
-			jr[report].ry != jr_old[report].ry         ||
-			jr[report].rz != jr_old[report].rz         ||
-			jr[report].slider != jr_old[report].slider ||
-			jr[report].dial != jr_old[report].dial     ||
-			jr[report].hat1 != jr_old[report].hat1     ||
-			jr[report].hat2 != jr_old[report].hat2     ||
-			jr[report].buttons != jr_old[report].buttons) {
-				if( TinyUSBDevice.ready()) {
-					hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
-					jr_old[report] = jr[report];
-				}
-				if (TinyUSBDevice.suspended()) {
-					TinyUSBDevice.remoteWakeup();
-				}
-			}
-			report++;
-			if (report > JS_COUNT)
-			report = 0;
-		}
+
 
 	if (millis() - timed1 > 1000)
 	{
@@ -496,6 +473,17 @@ void loop()
 		 count = 0;
 		 if (count > 3) {
 			Serial.println("\n\rRequesting data from 0x21");
+
+		  // Read from the slave and print out
+		  Wire.requestFrom(0x21, 6);
+  		Serial.print("\nrecv: '");
+		  while (Wire.available()) {
+		    Serial.print((char)Wire.read());
+		  }
+  		Serial.println("'");
+  		delay(10);
+
+
 			command->command_type = GET_LED;
 			command->id = 0;
 			size_t size = sizeof(command->command_type+command->id); // only sending command and id (led)
@@ -508,7 +496,7 @@ void loop()
 
 			size += sizeof(uint32_t); //add RGB(W) value from WS2812 to the request
 
-			Wire.requestFrom(0x21,size);
+			//Wire.requestFrom(0x21,size);
 			//i2cBuffSize = i2cBuffSize - Wire.readBytes((byte*)i2cBuff, size+sizeof(uint32_t));
 			Serial.println("After I2C RequestFrom(0x21)\n\r");
 		 }
