@@ -9,6 +9,8 @@
 #include <math.h>
 #include "CRC.h"
 #include "Wire.h"
+
+#define MAX_USB_PACKET_SIZE 64
 #define MAX_HID_REPORTDESC_SIZE 5120
 
 /*== LED ==*/
@@ -254,7 +256,6 @@ void i2cScanner() {
 
 void setup()
 {
-	SerialTinyUSB.begin(115200);
 	rp2040.enableDoubleResetBootloader();
 
 	JS_COUNT = static_cast<int>( std::ceil( static_cast<float>(AXIS_COUNT)/8 ) );
@@ -307,9 +308,10 @@ void setup()
 	TinyUSB_Device_Init(0);
 #endif
 
+	SerialTinyUSB.begin(115200);
 	TinyUSBDevice.setID(VID,PID);
 	TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
-	TinyUSBDevice.setProductDescriptor("EDGC");
+	TinyUSBDevice.setProductDescriptor("RP2040-HOTAS");
 	
 	// start the USB device
  	USBDevice.attach();
@@ -317,7 +319,7 @@ void setup()
 	if (JS_COUNT > 0) {
 		hid_joystick.setPollInterval(2);
 		hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
-		hid_joystick.setStringDescriptor("TinyUSB Joystick");
+		//hid_joystick.setStringDescriptor("TinyUSB Joystick");
 		hid_joystick.setReportDescriptor(_hidJoystickReportDesc, _hidJoystickReportDescSize);
 		hid_joystick.setReportCallback(get_report_callback, set_report_callback);
 		hid_joystick.begin();
@@ -414,31 +416,29 @@ void loop()
 	}
 	//}
 
-
+	Serial.println("Reqiest LED 0 data\n\r");
 	command->command_type = GET_LED;
 	command->id = 0;
 	size_t size = sizeof(command->command_type+command->id); // only sending command and id (led)
 	Wire.beginTransmission(0x21);
 	Wire.write((byte*)i2cBuff, size);
 	Wire.endTransmission();
-	//delay(100);
 	size += sizeof(uint32_t); //add RGB(W) value from WS2812 to the request
+
   // Read from the slave and print out
 	Wire.requestFrom(0x21, size);
-		Serial.println("\nrecv: ");
   i2cBuffSizeFree = i2cBuffSize - Wire.readBytes((byte*)i2cBuff, size);
 	led.raw = (uint32_t)command->data;
 	Serial.print("Buff size used: ");
 	Serial.println(i2cBuffSize - i2cBuffSizeFree);
-		Serial.print("LED W: ");
-	Serial.print(led.W);
-		Serial.print("  LED R: ");
-	Serial.print(led.R);
-		Serial.print("  LED G: ");
-	Serial.print(led.G);
-		Serial.print("  LED B: ");
-	Serial.print(led.B);
-	Serial.println();
+	Serial.print("LED W: ");
+	Serial.println(led.W);
+	Serial.print("LED R: ");
+	Serial.println(led.R);
+	Serial.print("LED G: ");
+	Serial.println(led.G);
+	Serial.print("LED B: ");
+	Serial.println(led.B);
 	// Wake up host if we are in suspend mode
 	// and REMOTE_WAKEUP feature is enabled by host
 	//if (TinyUSBDevice.suspended() && BOOTSEL)
@@ -449,40 +449,40 @@ void loop()
 
 
 
-	//jr[0].rx = jr[1].rx = map_clamped<uint16_t>(analogRead(A0), 200, 1800, 2047, 0);
-	//if (micros() - 2000 > update_cooldown) {
-	//	update_cooldown = micros();
-	//	if ( jr[report].x != jr_old[report].x      ||
-	//	jr[report].y != jr_old[report].y           ||
-	//	jr[report].z != jr_old[report].z           ||
-	//	jr[report].rx != jr_old[report].rx         ||
-	//	jr[report].ry != jr_old[report].ry         ||
-	//	jr[report].rz != jr_old[report].rz         ||
-	//	jr[report].slider != jr_old[report].slider ||
-	//	jr[report].dial != jr_old[report].dial     ||
-	//	jr[report].hat1 != jr_old[report].hat1     ||
-	//	jr[report].hat2 != jr_old[report].hat2     ||
-	//	jr[report].buttons != jr_old[report].buttons) {
-	//		if( TinyUSBDevice.ready()) {
-	//			hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
-	//			jr_old[report] = jr[report];
-	//		}
-	//		if (TinyUSBDevice.suspended()) {
-	//			TinyUSBDevice.remoteWakeup();
-	//		}
-	//	}
-	//	report++;
-	//	if (report > JS_COUNT)
-	//	report = 0;
-	//}
-
-
-
-	if (millis() - timed1 > 1000)
-	{
-		timed1 = millis();
-		i2cScanner();
+	jr[0].rx = jr[1].rx = map_clamped<uint16_t>(analogRead(A0), 200, 1800, 2047, 0);
+	if (micros() - 2000 > update_cooldown) {
+		update_cooldown = micros();
+		if ( jr[report].x != jr_old[report].x      ||
+		jr[report].y != jr_old[report].y           ||
+		jr[report].z != jr_old[report].z           ||
+		jr[report].rx != jr_old[report].rx         ||
+		jr[report].ry != jr_old[report].ry         ||
+		jr[report].rz != jr_old[report].rz         ||
+		jr[report].slider != jr_old[report].slider ||
+		jr[report].dial != jr_old[report].dial     ||
+		jr[report].hat1 != jr_old[report].hat1     ||
+		jr[report].hat2 != jr_old[report].hat2     ||
+		jr[report].buttons != jr_old[report].buttons) {
+			if( TinyUSBDevice.ready()) {
+				hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
+				jr_old[report] = jr[report];
+			}
+			if (TinyUSBDevice.suspended()) {
+				TinyUSBDevice.remoteWakeup();
+			}
+		}
+		report++;
+		if (report > JS_COUNT)
+		report = 0;
 	}
+
+
+
+	//if (millis() - timed1 > 1000)
+	//{
+	//	timed1 = millis();
+	//	i2cScanner();
+	//}
 }
 
 

@@ -59,7 +59,7 @@ static const uint8_t HID_JOYSTICK_rep[] = {
         HID_REPORT_COUNT  ( 32                            ),
         HID_REPORT_SIZE   ( 1                             ),
         HID_INPUT         ( HID_DATA|HID_VARIABLE|HID_ABSOLUTE|HID_WRAP_NO|HID_LINEAR|HID_PREFERRED_STATE|HID_NO_NULL_POSITION ),
-        HID_REPORT_COUNT  ( (uint8_t)(8 - 32%8) ),
+        HID_REPORT_COUNT  ( (uint8_t)(32%8) ),
         HID_REPORT_SIZE   ( 1                             ),
         HID_INPUT         ( HID_CONSTANT                  ),
 
