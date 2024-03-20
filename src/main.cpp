@@ -18,7 +18,7 @@ bool enableMouseAndKeyboard = 0;
 uint8_t JS_COUNT;
 int COLLECTIONS = MAX_COLLECTIONS;
 
-int AXIS_COUNT = 0;
+int AXIS_COUNT = 5;
 
 hid_Joystick_report_t* jr = nullptr;
 hid_Joystick_report_t* jr_old = nullptr;
@@ -254,6 +254,7 @@ void i2cScanner() {
 
 void setup()
 {
+	SerialTinyUSB.begin(115200);
 	rp2040.enableDoubleResetBootloader();
 
 	JS_COUNT = static_cast<int>( std::ceil( static_cast<float>(AXIS_COUNT)/8 ) );
@@ -305,7 +306,6 @@ void setup()
 	// - mbed rp2040
 	TinyUSB_Device_Init(0);
 #endif
-	SerialTinyUSB.begin(115200);
 
 	TinyUSBDevice.setID(VID,PID);
 	TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
@@ -315,12 +315,12 @@ void setup()
  	USBDevice.attach();
 
 	if (JS_COUNT > 0) {
-		//hid.setPollInterval(2);
-		//hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
-		//hid_joystick.setStringDescriptor("TinyUSB Joystick");
-		//hid_joystick.setReportDescriptor(_hidJoystickReportDesc, _hidJoystickReportDescSize);
-		//hid_joystick.setReportCallback(get_report_callback, set_report_callback);
-		//hid_joystick.begin();
+		hid_joystick.setPollInterval(2);
+		hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
+		hid_joystick.setStringDescriptor("TinyUSB Joystick");
+		hid_joystick.setReportDescriptor(_hidJoystickReportDesc, _hidJoystickReportDescSize);
+		hid_joystick.setReportCallback(get_report_callback, set_report_callback);
+		hid_joystick.begin();
 	}
 	if (enableMouseAndKeyboard) {
 		hid_kbm.setStringDescriptor("TinyUSB Keyboard/Mouse");
@@ -351,12 +351,6 @@ void setup()
 
 
 uint16_t hue;
-
-
-
-//bool reserved_addr(uint8_t addr) {
-//		return (addr & 0x78) == 0 || (addr & 0x78) == 0x78;
-//}
 
 int speed=1;
 int i=1;
@@ -407,10 +401,6 @@ void loop()
 
 	for (int p = 0; p < 3; p++) {
 		uint16_t _hue = hue + (p * 2 * 65536) / 3;
-		//led.R = 0*map_clamped<float>(LED,0,31,0,1);
-		//led.G = 255*map_clamped<float>(LED,0,31,0,1);
-		//led.B = 0*map_clamped<float>(LED,0,31,0,1);
-		//uint32_t _pixel = led.raw;
 		uint32_t _pixel = rainbow(_hue, 255, 255*map_clamped<float>(31,0,31,0,1), true);
 		auto buffsize = sizeof(command->command_type+command->id);
 		buffsize += sizeof(_pixel);
@@ -425,6 +415,30 @@ void loop()
 	//}
 
 
+	command->command_type = GET_LED;
+	command->id = 0;
+	size_t size = sizeof(command->command_type+command->id); // only sending command and id (led)
+	Wire.beginTransmission(0x21);
+	Wire.write((byte*)i2cBuff, size);
+	Wire.endTransmission();
+	//delay(100);
+	size += sizeof(uint32_t); //add RGB(W) value from WS2812 to the request
+  // Read from the slave and print out
+	Wire.requestFrom(0x21, size);
+		Serial.println("\nrecv: ");
+  i2cBuffSizeFree = i2cBuffSize - Wire.readBytes((byte*)i2cBuff, size);
+	led.raw = (uint32_t)command->data;
+	Serial.print("Buff size used: ");
+	Serial.println(i2cBuffSize - i2cBuffSizeFree);
+		Serial.print("LED W: ");
+	Serial.print(led.W);
+		Serial.print("  LED R: ");
+	Serial.print(led.R);
+		Serial.print("  LED G: ");
+	Serial.print(led.G);
+		Serial.print("  LED B: ");
+	Serial.print(led.B);
+	Serial.println();
 	// Wake up host if we are in suspend mode
 	// and REMOTE_WAKEUP feature is enabled by host
 	//if (TinyUSBDevice.suspended() && BOOTSEL)
@@ -468,38 +482,6 @@ void loop()
 	{
 		timed1 = millis();
 		i2cScanner();
-		count++;
-		if (count >4 )
-		 count = 0;
-		 if (count > 3) {
-			Serial.println("\n\rRequesting data from 0x21");
-
-		  // Read from the slave and print out
-		  Wire.requestFrom(0x21, 6);
-  		Serial.print("\nrecv: '");
-		  while (Wire.available()) {
-		    Serial.print((char)Wire.read());
-		  }
-  		Serial.println("'");
-  		delay(10);
-
-
-			command->command_type = GET_LED;
-			command->id = 0;
-			size_t size = sizeof(command->command_type+command->id); // only sending command and id (led)
-
-			Wire.beginTransmission(0x21);
-			Wire.write((byte*)i2cBuff, size);
-			Wire.endTransmission();
-
-			delay(100);
-
-			size += sizeof(uint32_t); //add RGB(W) value from WS2812 to the request
-
-			//Wire.requestFrom(0x21,size);
-			//i2cBuffSize = i2cBuffSize - Wire.readBytes((byte*)i2cBuff, size+sizeof(uint32_t));
-			Serial.println("After I2C RequestFrom(0x21)\n\r");
-		 }
 	}
 }
 
@@ -668,84 +650,8 @@ switch (state.pov_2) {
 	bitWrite(jr[0].buttons, 29, M3);
 	bitWrite(jr[0].buttons, 30, empty);
 	bitWrite(jr[0].buttons, 31, empty);
-	//serial_log_joystick_state(state);
 
 #if MAX_UPDATES_PER_SECOND
 	}
 #endif
-	//PixelPIO.neoPixelClear(true);
 }
-
-void serial_log_joystick_state(const x52::pro::JoystickState& state) {
-	// DebugPrinting after every 100th call
-	static int counter = 0;
-	if (counter++ % 100 != 0)
-		return;
-
-	X52DebugPrint("x:");
-	X52DebugPrint(state.x);
-	X52DebugPrint(" y:");
-	X52DebugPrint(state.y);
-	X52DebugPrint(" z:");
-	X52DebugPrint(state.z);
-
-	X52DebugPrint(" pov1:");
-	if (state.pov_1 & x52::Up)
-		X52DebugPrint("Up");
-	if (state.pov_1 & x52::Down)
-		X52DebugPrint("Down");
-	if (state.pov_1 & x52::Left)
-		X52DebugPrint("Left");
-	if (state.pov_1 & x52::Right)
-		X52DebugPrint("Right");
-
-	X52DebugPrint(" pov2:");
-	if (state.pov_2 & x52::Up)
-		X52DebugPrint("Up");
-	if (state.pov_2 & x52::Down)
-		X52DebugPrint("Down");
-	if (state.pov_2 & x52::Left)
-		X52DebugPrint("Left");
-	if (state.pov_2 & x52::Right)
-		X52DebugPrint("Right");
-
-	X52DebugPrint(" mode:");
-	switch (state.mode) {
-		case x52::ModeUndefined: X52DebugPrint("Undefined"); break;
-		case x52::Mode1: X52DebugPrint("Mode1"); break;
-		case x52::Mode2: X52DebugPrint("Mode2"); break;
-		case x52::Mode3: X52DebugPrint("Mode3"); break;
-	}
-
-	X52DebugPrint("\ntrigger_stage_1:");
-	X52DebugPrint(state.trigger_stage_1);
-	X52DebugPrint(" trigger_stage_2:");
-	X52DebugPrint(state.trigger_stage_2);
-	X52DebugPrint(" pinkie:");
-	X52DebugPrint(state.pinkie_switch);
-	X52DebugPrint(" fire:");
-	X52DebugPrint(state.button_fire);
-
-	X52DebugPrint("\nA:");
-	X52DebugPrint(state.button_a);
-	X52DebugPrint(" B:");
-	X52DebugPrint(state.button_b);
-	X52DebugPrint(" C:");
-	X52DebugPrint(state.button_c);
-
-	X52DebugPrint(" T1:");
-	X52DebugPrint(state.button_t1);
-	X52DebugPrint(" T2:");
-	X52DebugPrint(state.button_t2);
-	X52DebugPrint(" T3:");
-	X52DebugPrint(state.button_t3);
-	X52DebugPrint(" T4:");
-	X52DebugPrint(state.button_t4);
-	X52DebugPrint(" T5:");
-	X52DebugPrint(state.button_t5);
-	X52DebugPrint(" T6:");
-	X52DebugPrint(state.button_t6);
-
-	X52DebugPrint("\n");
-}
-

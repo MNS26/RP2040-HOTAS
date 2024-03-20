@@ -62,12 +62,12 @@ void setup() {
 	}
 	command = (struct Command*)i2cBuff;
 
-	analogReadResolution(11);
-	//command.data = &i2cBuff;
+	
 #if defined(ARDUINO_RASPBERRY_PI_PICO) // This changes the SMPS to be less efficient but also less noisy
 	pinMode(23, OUTPUT);
 	digitalWrite(23, HIGH);
-#endif	
+#endif
+
 	Serial.begin(115200);
 	ext_pixel.begin();
 
@@ -78,35 +78,12 @@ void setup() {
 
 	Wire.onReceive(receive);
 	Wire.onRequest(request);
+
+	analogReadResolution(11);
 }
 void loop() {
-	if (NewData) {
-		switch (command->command_type)
-		{
-			case SET_LED: {
-				Serial.println((uint)command->data);
-				led.raw = (uint32_t)command->data;
-				Serial.println((uint32_t)command->data);
-				ext_pixel.setPixelColor(command->id, led.R, led.G, led.B);
-				if (ext_pixel.canShow())
-					ext_pixel.show();
-				NewData = false;
-				break;
-			}
-			case SET_AXIS: {
-				NewData = false;
-				break;
-			}
-			case SET_BUTTON: {
-				NewData = false;
-				break;
-			}
-			default: {
-				NewData = false;
-				break;
-			}
-		}
-	}
+	if (ext_pixel.canShow())
+		ext_pixel.show();
 }
 
 
@@ -116,9 +93,9 @@ uint16_t readMuxChannel(uint8_t channel) {
 	digitalWriteFast(MUX_S3, bitRead(channel,2));
 	digitalWriteFast(MUX_S4, bitRead(channel,3));
 	digitalWriteFast(MUX_EN, LOW);
-	uint16_t read = analogRead(MUX_SIG);
+	uint16_t value = analogRead(MUX_SIG);
 	digitalWriteFast(MUX_EN, HIGH);
-	return read;
+	return value;
 }
 
 
@@ -126,17 +103,52 @@ uint16_t readMuxChannel(uint8_t channel) {
 // this function is registered as an event, see setup()
 void receive(int len) {
   i2cBuffSizeFree = i2cBuffSize - Wire.readBytes((byte*)i2cBuff, len);
-	NewData = true;
+	switch (command->command_type) {
+		case SET_LED: {
+			led.raw = (uint32_t)command->data;
+			ext_pixel.setPixelColor(command->id, led.R, led.G, led.B);
+			break;
+		}
+		case SET_AXIS: {
+			break;
+		}
+		case SET_BUTTON: {
+			break;
+		}
+		default: {
+			break;
+		}
+	}
 }
 
 // function that executes whenever data is received from master
 // Called when the I2C slave is read from
 void request() {
-  static int ctr = 765;
-  char buff[7];
-  // Return a simple incrementing hex value
-  sprintf(buff, "%06X", (ctr++) % 65535);
-  Wire.write(buff, 6);
+//	static int ctr = 765;
+//	char buff[7];
+//	// Return a simple incrementing hex value
+//	sprintf(buff, "%06X", (ctr++) % 65535);
+//	Wire.write(buff, 6);
+	switch (command->command_type) {
+		case GET_CONFIG: {
+			break;
+		}
+		case GET_LED: {
+			command->data = (uint32_t*) ext_pixel.getPixelColor(command->id);
+			i2cBuffSizeFree -= sizeof(uint32_t);
+			break; 
+		}
+		case GET_AXIS: {
+			break;
+		}
+		case GET_BUTTON: {
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+	Wire.write((byte*)i2cBuff, i2cBuffSize - i2cBuffSizeFree);
 }
 
 
