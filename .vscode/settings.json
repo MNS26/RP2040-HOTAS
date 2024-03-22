@@ -1,7 +1,6 @@
 {
 	"files.associations": {
 		"*.embeddedhtml": "html",
-		"usi_i2c_slave.c": "cpp",
 		"*.x": "cpp",
 		"mstd_iterator": "cpp",
 		"array": "cpp",
@@ -60,18 +59,20 @@
 		"streambuf": "cpp",
 		"cinttypes": "cpp",
 		"typeinfo": "cpp",
-		"*.bak": "plaintext",
 		"i2c.pio.h": "c",
 		"pio.h": "c",
 		"*.pio": "pio"
 	},
 	"C_Cpp.dimInactiveRegions": true,
-  "editor.insertSpaces": false,
+  "editor.insertSpaces": true,
 	"editor.wordBasedSuggestions": "matchingDocuments",
 	"editor.suggest.insertMode": "replace",
 	"editor.semanticHighlighting.enabled": true,
 	"editor.tabSize": 2,
-	"cmake.configureOnOpen": true,
+	"cmake.configureOnOpen": false,
 	"C_Cpp.errorSquiggles": "enabled",
-	"python.analysis.typeCheckingMode": "basic",
+	"python.analysis.typeCheckingMode": "strict",
+	"C_Cpp.codeAnalysis.runAutomatically": true,
+	"C_Cpp.clang_format_style": "LLVM",
+	"debug.disassemblyView.showSourceCode": true,
 }
