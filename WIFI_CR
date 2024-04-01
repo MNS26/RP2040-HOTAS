@@ -1,0 +1,11 @@
+[wifi]
+
+AP=
+; LINUX
+
+	-D STASSID=\"AP\"
+	-D STAPSK=\"PASSWORD\"
+
+; WINDOWS
+;	-D STASSID="AP"
+;	-D STAPSK="PASSWORD"
