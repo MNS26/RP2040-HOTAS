@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 uint AddHeader(uint8_t* buff, size_t offset, uint8_t repId) {
 
   uint8_t usagepage[] = {

@@ -61,7 +61,12 @@
 		"typeinfo": "cpp",
 		"i2c.pio.h": "c",
 		"pio.h": "c",
-		"*.pio": "pio"
+		"*.pio": "pio",
+		"stdint.h": "c",
+		"stdlib.h": "c",
+		"stdlib_noniso.h": "c",
+		"stdbool.h": "c",
+		"arduino.h": "c"
 	},
 	"C_Cpp.dimInactiveRegions": true,
   "editor.insertSpaces": true,
