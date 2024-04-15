@@ -96,14 +96,13 @@ extern FS* fileSystem;
 
 
 
-
 template <typename T>
 T map_clamped(T x, T in_min, T in_max, T out_min, T out_max)
 {
-  if (x > in_max)
-    x = in_max;
-  if (x < in_min)
-    x = in_min;
+  if (x < in_min) x = in_min;
+  if (x > in_max) x = in_max;
+  if (x < out_min) x = out_max;
+  if (x > out_max) x = out_max;
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
@@ -131,26 +130,29 @@ bool getButtonI2cSlave (int inputID, int slaveID) {
   Wire.write((uint8_t*)i2cBuff, buffsize);
   Wire.endTransmission();
   buffsize += sizeof(bool);
+  memset(i2cBuff, 0 ,i2cBuffUsed);
   Wire.requestFrom(slaveID, buffsize);
-  i2cBuffUsed = Wire.readBytes((uint8_t*)i2cBuff, buffsize);
-  Serial.print("COMMAND TYPE: ");
-  Serial.print(command->command_type);
-  Serial.print(" GetButton ID: ");
-  Serial.print(command->id);
-
-  Serial.print(" STATE: ");
-  Serial.println(*(uint8_t*)command->data);
-  Serial.print("BUFF: ");
-  for (int i = 0; i < i2cBuffUsed; i++) {
-    Serial.print(((uint8_t*)i2cBuff)[i], BIN);
+  for (int i = 0; Wire.available()>0; i++) {
+    ((uint8_t*)i2cBuff)[i] = Wire.read();
+    i2cBuffUsed = i;
   }
-  Serial.println();
-  return *(bool*)command->data;
-}
+  // Serial.print("COMMAND TYPE: ");
+  // Serial.print(command->command_type);
+  // Serial.print(" GetButton ID: ");
+  // Serial.print(command->id);
 
+  // Serial.print(" STATE: ");
+  // Serial.println(*(uint8_t*)command->data);
+  // Serial.print("BUFF: ");
+  // for (int i = 0; i < i2cBuffUsed; i++) {
+  //   Serial.print(((uint8_t*)i2cBuff)[i], BIN);
+  // }
+  // Serial.println();
+  return *(bool *)command->data;
+}
 // IS CURRENTLY BROKEN!!!!!!
 uint16_t getAxisI2cSlave (int inputID, int slaveID) {
-  memset(i2cBuff, 0 ,i2cBuffSize);
+  memset(i2cBuff, 0 ,i2cBuffUsed);
   command->command_type = GetAxis;
   command->id = inputID;
   buffsize = sizeof(command->command_type+command->id);
@@ -158,13 +160,18 @@ uint16_t getAxisI2cSlave (int inputID, int slaveID) {
   Wire.write((uint8_t*)i2cBuff, buffsize);
   Wire.endTransmission();
   buffsize += sizeof(uint16_t);
+  memset(i2cBuff, 0 ,i2cBuffUsed);
   Wire.requestFrom(slaveID, buffsize);
-  i2cBuffUsed = Wire.readBytes((uint8_t*)i2cBuff, buffsize);
-  return *(uint16_t*)command->data;
+  for (int i = 0; Wire.available()>0; i++) {
+    ((uint8_t*)i2cBuff)[i] = Wire.read();
+    i2cBuffUsed = i;
+  }
+  //i2cBuffUsed = Wire.readBytes((uint8_t*)i2cBuff, buffsize);
+  return (uint16_t)(*(uint16_t*)command->data);
 }
 
 uint32_t getLedI2cSlave (int LedID, int slaveID) {
-  memset(i2cBuff, 0 ,i2cBuffSize);
+  memset(i2cBuff, 0 ,i2cBuffUsed);
   command->command_type = GetLed;
   command->id = LedID;
   buffsize = sizeof(command->command_type+command->id);
@@ -172,20 +179,24 @@ uint32_t getLedI2cSlave (int LedID, int slaveID) {
   Wire.write((uint8_t*)i2cBuff, buffsize);
   Wire.endTransmission();
   buffsize += sizeof(uint32_t);
+  memset(i2cBuff, 0 ,i2cBuffUsed);
   Wire.requestFrom(slaveID, buffsize);
-  i2cBuffUsed = Wire.readBytes((uint8_t*)i2cBuff, buffsize);
-  Serial.print("COMMAND TYPE: ");
-  Serial.print(command->command_type);
-  Serial.print(" GetButton ID: ");
-  Serial.print(command->id);
-
-  Serial.print(" STATE: ");
-  Serial.println(*(uint32_t*)command->data);
-  Serial.print("BUFF: ");
-  for (int i = 0; i < i2cBuffUsed; i++) {
-    Serial.print(((uint8_t*)i2cBuff)[i], BIN);
+  for (int i = 0; Wire.available()>0; i++) {
+    ((uint8_t*)i2cBuff)[i] = Wire.read();
+    i2cBuffUsed = i;
   }
-  Serial.println();
+  // Serial.print("COMMAND TYPE: ");
+  // Serial.print(command->command_type);
+  // Serial.print(" GetButton ID: ");
+  // Serial.print(command->id);
+
+  // Serial.print(" STATE: ");
+  // Serial.println(*(uint32_t*)command->data);
+  // Serial.print("BUFF: ");
+  // for (int i = 0; i < i2cBuffUsed; i++) {
+  //   Serial.print(((uint8_t*)i2cBuff)[i], BIN);
+  // }
+  // Serial.println();
 
   return *(uint32_t*)command->data;
 }
@@ -633,11 +644,11 @@ switch (state.mode) {
   jr[0].y = map_clamped<uint16_t>(state.y, 0, 1023, 0, 2047);
   jr[0].z = map_clamped<uint16_t>(state.z, 0, 1023, 0, 2047);  
   jr[0].rx = map_clamped<uint16_t>(analogRead(A1), 200, 1800, 2047, 0);
-  //jr[0].ry = map_clamped<uint16_t>(getAxisI2cSlave(1,0x21), 0, 1023, 0, 2047);
+  jr[0].ry = map_clamped<uint16_t>(getAxisI2cSlave(1,0x21), 0, 1023, 0, 2047);
   //jr[0].rz = map_clamped<uint16_t>(getAxisI2cSlave(2,0x21), 0, 1023, 0, 2047);
   //jr[0].dial = map_clamped<uint16_t>(getAxisI2cSlave(3,0x21), 0, 1023, 0, 2047);
 
-  if( rp2040.fifo.push_nb(buttons)) {
+  //if( rp2040.fifo.push_nb(buttons)) {
 
     bitWrite(buttons, 0, state.trigger_stage_1);
     bitWrite(buttons, 1, state.button_fire);
@@ -680,8 +691,8 @@ switch (state.mode) {
     bitWrite(buttons, 30, getButtonI2cSlave(Button3, 0x21));
     //bitWrite(buttons, 30, getFromI2cSlave<bool>(GetButton, Button3, 0x21));
     bitWrite(buttons, 31, empty);
-  }  
-
+  //}  
+  jr[0].buttons = buttons;
 
   readyToSend[0] = true;  
 #if MAX_UPDATES_PER_SECOND
