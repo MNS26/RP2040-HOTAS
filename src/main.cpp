@@ -1,6 +1,6 @@
 /*== JOYSTICK ==*/
-#include <Arduino.h>
 
+#include <Arduino.h>
 #include "Commands.h"
 #include "Common.h"
 #include "hid.h"
@@ -19,10 +19,12 @@
 
 
 bool LED_on;
+bool LED_breathe;
+uint8_t LED_brightness;
 int speed=1;
 int LED=0;
-int lastTime = micros();
-int update_cooldown = micros();
+uint32_t lastTime = micros();
+uint32_t update_cooldown = micros();
 int report = 0;
 
 /*== LED ==*/
@@ -35,11 +37,14 @@ uint8_t DeviceCountHat = 0;
 uint8_t DeviceCount = 0;
 int COLLECTIONS = MAX_COLLECTIONS;
 
-int AxisResolution = 11;
+uint16_t hue;
+uint32_t nextScan = millis();
+uint32_t nextScanPrint = millis();
+
+uint16_t AxisResolution = 11;
 int AxisCount = 8;
 int ButtonCount = 32;
 int HatCount= 2;
-
 hid_Joystick_report_t* jr = NULL;
 hid_Joystick_report_t* jr_old = NULL;
 uint8_t* _hidJoystickReportDesc = NULL;
@@ -47,17 +52,18 @@ uint16_t _hidJoystickReportDescSize = 0;
 uint8_t* _hidKBMReportDesc = NULL;
 uint16_t _hidKBMReportDescSize = 0;
 size_t buffsize;
-int updateButtons;
 bool* readyToSend = NULL;
 
 Adafruit_USBD_HID hid_joystick;
 Adafruit_USBD_HID hid_kbm;
 
-uint8_t i2cBuffSize = 255;
-uint8_t i2cBuffUsed;
+struct __attribute__((packed, aligned(1))) Command{
+  uint16_t command_type;
+  uint16_t id;
+}command;
+uint8_t i2cDataBuf[64];
 
-void* i2cBuff = NULL;
-volatile Command* command;
+
 byte i2cIDs[128];
 
 // Select the FileSystem by uncommenting one of the lines below
@@ -101,9 +107,10 @@ T map_clamped(T x, T in_min, T in_max, T out_min, T out_max)
 {
   if (x < in_min) x = in_min;
   if (x > in_max) x = in_max;
-  if (x < out_min) x = out_max;
-  if (x > out_max) x = out_max;
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  x = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  //if (x > out_max) x = out_max;
+  //if (x < out_min) x = out_min;
+  return x;
 }
 
 uint32_t rainbow(uint16_t _hue, uint8_t saturation, uint8_t brightness, bool gammify) {
@@ -113,6 +120,18 @@ uint32_t rainbow(uint16_t _hue, uint8_t saturation, uint8_t brightness, bool gam
 }
 
 
+// this is here since the joystick still works and doesnt need to be replaced (it will be gutted after throttle is properly done)
+
+#define X52_BUSY_WAIT 0
+#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 1
+#include <x52_hotas.h>
+#define MAX_UPDATES_PER_SECOND 300
+
+// TODO: Choose your favorite digital pins on your board.
+x52::pro::JoystickClient<D22, D21, D26, D20> joystick_client;
+//x52::pro::JoystickConfig cfg;
+//x52::pro::JoystickState state;
+
 /*
   =============
     Callbacks  
@@ -121,21 +140,39 @@ uint32_t rainbow(uint16_t _hue, uint8_t saturation, uint8_t brightness, bool gam
 #include "hid_Report_Callback.h"
 
 
-bool getButtonI2cSlave (int inputID, int slaveID) {
-  memset(i2cBuff, 0 ,i2cBuffSize);
-  command->command_type = GetButton;
-  command->id = inputID;
-  buffsize = sizeof(command->command_type+command->id);
-  Wire.beginTransmission(slaveID);
-  Wire.write((uint8_t*)i2cBuff, buffsize);
+template <typename T> T GetFromI2cSlave(int Slave, int cmd, int id)
+{
+  Wire.beginTransmission(Slave);
+  Wire.write(cmd);
+  Wire.write(id);
   Wire.endTransmission();
-  buffsize += sizeof(bool);
-  memset(i2cBuff, 0 ,i2cBuffUsed);
+  Wire.requestFrom(Slave, sizeof(T));
+
+  return (T) 0;
+}
+
+void SetI2cSlave(int Slave, int cmd, int id)
+{
+
+}
+
+bool getButtonI2cSlave (int slaveID, int inputID) {
+  command.command_type = GetButton;
+  command.id = inputID;
+  Wire.beginTransmission(slaveID);
+  Wire.write(command.command_type);
+  Wire.write(command.id);
+  Wire.endTransmission();
+  buffsize = sizeof(bool);
   Wire.requestFrom(slaveID, buffsize);
-  for (int i = 0; Wire.available()>0; i++) {
-    ((uint8_t*)i2cBuff)[i] = Wire.read();
-    i2cBuffUsed = i;
-  }
+  return Wire.read();
+  //i2cDataBuf[0] =Wire.read();
+  //return i2cDataBuf[0];
+
+  // for (int i = 0; Wire.available()>0; i++) {
+  //   ((uint8_t*)i2cBuff)[i] = Wire.read();
+  //   i2cBuffUsed = i;
+  // }
   // Serial.print("COMMAND TYPE: ");
   // Serial.print(command->command_type);
   // Serial.print(" GetButton ID: ");
@@ -148,42 +185,38 @@ bool getButtonI2cSlave (int inputID, int slaveID) {
   //   Serial.print(((uint8_t*)i2cBuff)[i], BIN);
   // }
   // Serial.println();
-  return *(bool *)command->data;
-}
-// IS CURRENTLY BROKEN!!!!!!
-uint16_t getAxisI2cSlave (int inputID, int slaveID) {
-  memset(i2cBuff, 0 ,i2cBuffUsed);
-  command->command_type = GetAxis;
-  command->id = inputID;
-  buffsize = sizeof(command->command_type+command->id);
-  Wire.beginTransmission(slaveID);
-  Wire.write((uint8_t*)i2cBuff, buffsize);
-  Wire.endTransmission();
-  buffsize += sizeof(uint16_t);
-  memset(i2cBuff, 0 ,i2cBuffUsed);
-  Wire.requestFrom(slaveID, buffsize);
-  for (int i = 0; Wire.available()>0; i++) {
-    ((uint8_t*)i2cBuff)[i] = Wire.read();
-    i2cBuffUsed = i;
-  }
-  //i2cBuffUsed = Wire.readBytes((uint8_t*)i2cBuff, buffsize);
-  return (uint16_t)(*(uint16_t*)command->data);
+
 }
 
-uint32_t getLedI2cSlave (int LedID, int slaveID) {
-  memset(i2cBuff, 0 ,i2cBuffUsed);
-  command->command_type = GetLed;
-  command->id = LedID;
-  buffsize = sizeof(command->command_type+command->id);
+
+uint16_t getAxisI2cSlave (int slaveID, int inputID) {
+  command.command_type = GetAxis;
+  command.id = inputID;
   Wire.beginTransmission(slaveID);
-  Wire.write((uint8_t*)i2cBuff, buffsize);
+  Wire.write(command.command_type);
+  Wire.write(command.id);
   Wire.endTransmission();
-  buffsize += sizeof(uint32_t);
-  memset(i2cBuff, 0 ,i2cBuffUsed);
-  Wire.requestFrom(slaveID, buffsize);
+  Wire.requestFrom(slaveID, sizeof(uint16_t));
+  Wire.readBytes(i2cDataBuf, 2);
   for (int i = 0; Wire.available()>0; i++) {
-    ((uint8_t*)i2cBuff)[i] = Wire.read();
-    i2cBuffUsed = i;
+    i2cDataBuf[i] = Wire.read();
+  }
+  return ((uint16_t*)i2cDataBuf)[0];
+}
+
+
+
+
+uint32_t getLedI2cSlave (int slaveID, int LedID) {
+  command.command_type = GetLed;
+  command.id = LedID;
+  Wire.beginTransmission(slaveID);
+  Wire.write(command.command_type);
+  Wire.write(command.id);
+  Wire.endTransmission();
+  Wire.requestFrom(slaveID, sizeof(uint32_t));
+  for (int i = 0; Wire.available()>0; i++) {
+    i2cDataBuf[i] = Wire.read();
   }
   // Serial.print("COMMAND TYPE: ");
   // Serial.print(command->command_type);
@@ -198,17 +231,16 @@ uint32_t getLedI2cSlave (int LedID, int slaveID) {
   // }
   // Serial.println();
 
-  return *(uint32_t*)command->data;
+  return ((uint32_t*)i2cDataBuf)[0];
 }
 
-void setLedI2cSlave (int LedID, int slaveID, uint32_t rgbw) {
-  memset(i2cBuff, 0 ,i2cBuffSize);
-  command->command_type = SetLed;
-  command->id = LedID;
-  command->data = (uint32_t*)rgbw;
-  buffsize = sizeof(command->command_type+command->id+sizeof(rgbw));
+void setLedI2cSlave (int slaveID, int LedID, uint32_t rgbw) {
+  command.command_type = GetLed;
+  command.id = LedID;
   Wire.beginTransmission(slaveID);
-  Wire.write((uint8_t*)i2cBuff, buffsize);
+  Wire.write(command.command_type);
+  Wire.write(command.id);
+  Wire.write(rgbw);
   Wire.endTransmission();
 }
 
@@ -238,10 +270,10 @@ void i2cScanner() {
 
 void setup() {
 
-  if ( i2cBuff == NULL ) {
-    i2cBuff = (uint8_t*)malloc(i2cBuffSize);
-    command = (struct Command*)i2cBuff;
-  }
+  // if ( i2cBuff == NULL ) {
+  //   i2cBuff = (uint8_t*)malloc(i2cBuffSize);
+  //   command = (struct Command*)i2cBuff;
+  // }
   if (_hidKBMReportDesc == nullptr) {
     _hidKBMReportDesc = (uint8_t*)malloc(150);
     memset(_hidKBMReportDesc, 0, 150);
@@ -359,6 +391,8 @@ void setup() {
 }
 
 
+uint32_t buttons;
+
 
 /*
   ========
@@ -418,12 +452,12 @@ void loop()
   //}
   
 
-  if (rp2040.fifo.available()) {
-    rp2040.fifo.pop_nb((uint32_t*)jr[0].buttons);
-  }
-
+  //if (rp2040.fifo.available()) {
+  //  uint32_t t;
+  //  rp2040.fifo.pop_nb(t);
+  //}
   
-  if (micros() - 2000 > update_cooldown) {
+  if (micros() - update_cooldown > 20) {
     update_cooldown = micros();
     if ( readyToSend[report] && 
     //if ( 
@@ -449,28 +483,11 @@ void loop()
     }
     report++;
     if (report > DeviceCountJoystick)
-    report = 0;
+      report = 0;
   }
 }
 
 
-// this is here since the joystick still works and doesnt need to be replaced (it will be gutted after throttle is properly done)
-
-#define X52_BUSY_WAIT 0
-#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 1
-#include <x52_hotas.h>
-#define MAX_UPDATES_PER_SECOND 300
-
-// TODO: Choose your favorite digital pins on your board.
-x52::pro::JoystickClient<D22, D21, D26, D20> joystick_client;
-//x52::pro::JoystickConfig cfg;
-//x52::pro::JoystickState state;
-
-uint16_t hue;
-int nextScan = millis();
-int nextScanPrint = millis();
-uint32_t buttons;
-uint16_t axis;
 
 
 void setup1()
@@ -489,14 +506,18 @@ void setup1()
   Wire.setTimeout(10);
   Wire.setSDA(D0);
   Wire.setSCL(D1);
-  Wire.setClock(100000);
+#ifdef I2CSPEED
+  Wire.setClock(I2CSPEED);
+#else
+  Wire.setClock(1000);
+#endif
   Wire.setTimeout(100);
   Wire.begin();
 
   analogReadResolution(11);
-  setLedI2cSlave(0,0x21,0);
-  setLedI2cSlave(1,0x21,0);
-  setLedI2cSlave(2,0x21,0);
+  //setLedI2cSlave(0,0x21,0);
+  //setLedI2cSlave(1,0x21,0);
+  //setLedI2cSlave(2,0x21,0);
   
   joystick_client.Setup();
 
@@ -510,30 +531,32 @@ void setup1()
 void loop1()
 {
 
-  //memset(i2cBuff, 0 ,i2cBuffSize);
-  if (millis() - nextScan > 100) {
-      for (int addr = 0; addr < (1 << 7); ++addr) {
+  // if (millis() - nextScan > 100) {
+  //     for (int addr = 0; addr < (1 << 7); ++addr) {
 
-        // Perform a 0-byte read from the probe address. The read function
-        // returns a negative result NAK'd any time other than the last data
-        // byte. Skip over reserved addresses.
-        int result;
-        if ((addr & 0x78) == 0 || (addr & 0x78) == 0x78)
-          result = -1;
-        else
-          Wire.beginTransmission(addr);
-        result = Wire.endTransmission();
-        if (result == 0)
-          i2cIDs[addr] = 1;
-        else
-          i2cIDs[addr] = 0;
-      }
-      nextScan = millis();
-  }
-  if (millis() - nextScanPrint > 1000) {
-    i2cScanner();
-    nextScanPrint = millis();
-  }
+  //       // Perform a 0-byte read from the probe address. The read function
+  //       // returns a negative result NAK'd any time other than the last data
+  //       // byte. Skip over reserved addresses.
+  //       int result;
+  //       if ((addr & 0x78) == 0 || (addr & 0x78) == 0x78)
+  //         result = -1;
+  //       else
+  //         Wire.beginTransmission(addr);
+  //       result = Wire.endTransmission();
+  //       if (result == 0)
+  //         i2cIDs[addr] = 1;
+  //       else
+  //         i2cIDs[addr] = 0;
+  //     }
+  //     nextScan = millis();
+  // }
+  // if (millis() - nextScanPrint > 1000) {
+  //   i2cScanner();
+  //   nextScanPrint = millis();
+  // }
+
+
+
   // hue+=50;
   // if (hue >= UINT16_MAX)
   // hue = 0;
@@ -643,58 +666,60 @@ switch (state.mode) {
   jr[0].x = map_clamped<uint16_t>(state.x, 0, 1023, 0, 2047);
   jr[0].y = map_clamped<uint16_t>(state.y, 0, 1023, 0, 2047);
   jr[0].z = map_clamped<uint16_t>(state.z, 0, 1023, 0, 2047);  
-  jr[0].rx = map_clamped<uint16_t>(analogRead(A1), 200, 1800, 2047, 0);
-  jr[0].ry = map_clamped<uint16_t>(getAxisI2cSlave(1,0x21), 0, 1023, 0, 2047);
-  //jr[0].rz = map_clamped<uint16_t>(getAxisI2cSlave(2,0x21), 0, 1023, 0, 2047);
-  //jr[0].dial = map_clamped<uint16_t>(getAxisI2cSlave(3,0x21), 0, 1023, 0, 2047);
+  jr[0].rx = map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0);
 
-  //if( rp2040.fifo.push_nb(buttons)) {
+  // 1 = ??? (nub X?)
+  // 2 = ??? (nub Y?)
+  // 3 = I dial
+  // 4 = E dial
+  // 5 = ??? (slider ?)
+  Serial.print(jr[0].rx, BIN);
+  Serial.print(" ");
+  Serial.println(getAxisI2cSlave(0x21, 5),BIN);
 
-    bitWrite(buttons, 0, state.trigger_stage_1);
-    bitWrite(buttons, 1, state.button_fire);
-    bitWrite(buttons, 2, state.button_a);
-    bitWrite(buttons, 3, state.button_b);
-    bitWrite(buttons, 4, state.button_c);
-    bitWrite(buttons, 5, state.pinkie_switch);
-    //bitWrite(buttons, 6, getFromI2cSlave<bool>(GetButton, Button1, 0x21));
-    bitWrite(buttons, 6, getButtonI2cSlave(Button1, 0x21));
-    //bitWrite(buttons, 7, getFromI2cSlave<bool>(GetButton, Button2, 0x21));
-    bitWrite(buttons, 7, getButtonI2cSlave(Button2, 0x21));
-    bitWrite(buttons, 8, state.button_t1);
-    bitWrite(buttons, 9, state.button_t2);
-    bitWrite(buttons, 10, state.button_t3);
-    bitWrite(buttons, 11, state.button_t4);
-    bitWrite(buttons, 12, state.button_t5);
-    bitWrite(buttons, 13, state.button_t6);
-    bitWrite(buttons, 14, state.trigger_stage_2);
-    bitWrite(buttons, 15, getButtonI2cSlave(Button10, 0x21));
-    //bitWrite(buttons, 15, getFromI2cSlave<bool>(GetButton, Button10, 0x21));
-    bitWrite(buttons, 16, empty);
-    bitWrite(buttons, 17, empty);
-    bitWrite(buttons, 18, getButtonI2cSlave(Button11, 0x21));
-    //bitWrite(buttons, 18, getFromI2cSlave<bool>(GetButton, Button11, 0x21));    
-    bitWrite(buttons, 19, p2u);
-    bitWrite(buttons, 20, p2r);
-    bitWrite(buttons, 21, p2d);
-    bitWrite(buttons, 22, p2l);
-    bitWrite(buttons, 23, getButtonI2cSlave(Button6, 0x21));
-    //bitWrite(buttons, 23, getFromI2cSlave<bool>(GetButton, Button6, 0x21));
-    bitWrite(buttons, 24, getButtonI2cSlave(Button5, 0x21));
-    //bitWrite(buttons, 24, getFromI2cSlave<bool>(GetButton, Button5, 0x21));
-    bitWrite(buttons, 25, getButtonI2cSlave(Button4, 0x21));
-    //bitWrite(buttons, 25, getFromI2cSlave<bool>(GetButton, Button4, 0x21));
-    bitWrite(buttons, 26, getButtonI2cSlave(Button7, 0x21));
-    //bitWrite(buttons, 26, getFromI2cSlave<bool>(GetButton, Button7, 0x21));
-    bitWrite(buttons, 27, M1);
-    bitWrite(buttons, 28, M2);
-    bitWrite(buttons, 29, M3);
-    bitWrite(buttons, 30, getButtonI2cSlave(Button3, 0x21));
-    //bitWrite(buttons, 30, getFromI2cSlave<bool>(GetButton, Button3, 0x21));
-    bitWrite(buttons, 31, empty);
+  //jr[0].ry = getAxisI2cSlave(0x21, 5);
+  //jr[0].rz = getAxisI2cSlave(0x21, 4);
+  //jr[0].dial = getAxisI2cSlave(0x21, 5);
+
+  
+  bitWrite(buttons, 0, state.trigger_stage_1);
+  bitWrite(buttons, 1, state.button_fire);
+  bitWrite(buttons, 2, state.button_a);
+  bitWrite(buttons, 3, state.button_b);
+  bitWrite(buttons, 4, state.button_c);
+  bitWrite(buttons, 5, state.pinkie_switch);
+  bitWrite(buttons, 6, getButtonI2cSlave(0x21, Button1));
+  bitWrite(buttons, 7, getButtonI2cSlave(0x21, Button3));
+  bitWrite(buttons, 8, state.button_t1);
+  bitWrite(buttons, 9, state.button_t2);
+  bitWrite(buttons, 10, state.button_t3);
+  bitWrite(buttons, 11, state.button_t4);
+  bitWrite(buttons, 12, state.button_t5);
+  bitWrite(buttons, 13, state.button_t6);
+  bitWrite(buttons, 14, state.trigger_stage_2);
+  bitWrite(buttons, 15, getButtonI2cSlave(0x21, Button10));
+  bitWrite(buttons, 16, empty);
+  bitWrite(buttons, 17, empty);
+  bitWrite(buttons, 18, getButtonI2cSlave(0x21, Button11));
+  bitWrite(buttons, 19, p2u);
+  bitWrite(buttons, 20, p2r);
+  bitWrite(buttons, 21, p2d);
+  bitWrite(buttons, 22, p2l);
+  bitWrite(buttons, 23, getButtonI2cSlave(0x21, Button7));
+  bitWrite(buttons, 24, getButtonI2cSlave(0x21, Button6));
+  bitWrite(buttons, 25, getButtonI2cSlave(0x21, Button5));
+  bitWrite(buttons, 26, getButtonI2cSlave(0x21, Button4));
+  bitWrite(buttons, 27, M1);
+  bitWrite(buttons, 28, M2);
+  bitWrite(buttons, 29, M3);
+  bitWrite(buttons, 30, getButtonI2cSlave(0x21, Button2));
+  bitWrite(buttons, 31, empty);
+  //if( rp2040.fifo.push_nb(buttons))
+  //{
   //}  
   jr[0].buttons = buttons;
-
   readyToSend[0] = true;  
+  
 #if MAX_UPDATES_PER_SECOND
   }
 #endif

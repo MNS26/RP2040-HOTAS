@@ -102,11 +102,6 @@ enum Buttons {
 };
 
 
-struct __attribute__((packed, aligned(1))) Command{
-  uint16_t command_type;
-  uint16_t id;
-  void* data;
-};
 
 struct __attribute__((packed, aligned(1))) Input_Config {
   uint8_t input_type;

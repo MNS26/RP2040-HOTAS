@@ -4,43 +4,47 @@
 #include <Adafruit_NeoPixel.h>
 #include "CRC.h"
 #include "Wire.h"
-int i2cADDR = calcCRC8((uint8_t*)rp2040.getChipID(), sizeof(rp2040.getChipID()));
 
+//int i2cADDR = calcCRC8((uint8_t*)rp2040.getChipID(), sizeof(rp2040.getChipID()));
+int i2cADDR = 0x21;
+// Buttons
+// D E I HAT HAT HAT HAT Scroll Scroll RB LB
+// Axis
+// ????
 #define I2C_SDA 0
 #define I2C_SCL 1
-#define WS2812_EXT 2
-#define WS2812_INT NULL
-#define BUTTON1 3
-#define BUTTON2 4
-#define BUTTON3 5
-#define HAT1_1 6
-#define HAT1_2 7
-#define HAT1_3 8
-#define HAT1_4 9
-#define SCROLL_1 10
-#define SCROLL_2 11
+#define BUTTON1 2
+#define BUTTON2 3
+#define BUTTON3 4
+#define HAT1_1 5
+#define HAT1_2 6
+#define HAT1_3 7
+#define HAT1_4 8
+#define SCROLL_1 9
+#define SCROLL_2 10
 #define LMB 12
-#define RMB 13
-#define MUX_SIG 28
-#define MUX_EN 27
-#define MUX_S1 26
+#define RMB 11
+#define MUX_SIG A2
+#define MUX_S4 A1
+#define MUX_S3 A0
 #define MUX_S2 22
-#define MUX_S3 21
-#define MUX_S4 20
+#define MUX_S1 21
+#define MUX_EN 20
 
+#define WS2812_PIN NULL
 
 #define EXT_NUM_PIXELS 3
 
 
-Adafruit_NeoPixel ext_pixel(EXT_NUM_PIXELS, WS2812_EXT);
+//Adafruit_NeoPixel ext_pixel(EXT_NUM_PIXELS, WS2812_PIN);
 
-volatile Command* command;
 volatile RGBW led;
-uint8_t i2cBuffSize = 255;
-uint8_t i2cBuffSizeFree = i2cBuffSize;
-uint8_t i2cBuffUsed;
-void* i2cBuff = NULL;
-
+uint8_t i2cDataSize = 0;
+struct __attribute__((packed, aligned(1))) Command{
+  uint16_t command_type;
+  uint16_t id;
+}command;
+uint8_t i2cDataBuf[64];
 
 void receive(int len);
 void request();
@@ -54,8 +58,7 @@ void setup() {
   digitalWrite(23, HIGH);
 #endif
 
-  Serial.begin(115200);
-  ext_pixel.begin();
+  //ext_pixel.begin();
 
   analogReadResolution(11);
 
@@ -69,15 +72,15 @@ void setup() {
   pinMode(HAT1_4, OUTPUT_2MA);
   pinMode(SCROLL_1, OUTPUT_2MA);
   pinMode(SCROLL_2, OUTPUT_2MA);
-  pinMode(LMB, OUTPUT_12MA);
-  pinMode(RMB, OUTPUT_12MA);
-  pinMode(MUX_EN, OUTPUT_12MA);
-  pinMode(MUX_S1, OUTPUT_12MA);
-  pinMode(MUX_S2, OUTPUT_12MA);
-  pinMode(MUX_S3, OUTPUT_12MA);
-  pinMode(MUX_S4, OUTPUT_12MA);
+  pinMode(LMB, OUTPUT_2MA);
+  pinMode(RMB, OUTPUT_2MA);
+  pinMode(MUX_EN, OUTPUT_2MA);
+  pinMode(MUX_S1, OUTPUT_2MA);
+  pinMode(MUX_S2, OUTPUT_2MA);
+  pinMode(MUX_S3, OUTPUT_2MA);
+  pinMode(MUX_S4, OUTPUT_2MA);
   pinMode(MUX_SIG, INPUT);
-  
+
   digitalWrite(BUTTON1, HIGH);
   digitalWrite(BUTTON2, HIGH);
   digitalWrite(BUTTON3, HIGH);
@@ -89,7 +92,6 @@ void setup() {
   digitalWrite(SCROLL_2, HIGH);
   digitalWrite(LMB, HIGH);
   digitalWrite(RMB, HIGH);
-  //digitalWrite(MUX_SIG, LOW);
   digitalWrite(MUX_EN, HIGH);
   digitalWrite(MUX_S1, LOW);
   digitalWrite(MUX_S2, LOW);
@@ -99,27 +101,26 @@ void setup() {
 }
 
 void loop() {
-  if (ext_pixel.canShow())
-    ext_pixel.show();
-  auto a = 0;
-  a = readMuxChannel(1); //nub
-  a = readMuxChannel(2); //nub
-  a = readMuxChannel(3); //nub
-  a = readMuxChannel(4); //nub
-  a = readMuxChannel(5); //axis
-  a = readMuxChannel(6); //axis
-  a = readMuxChannel(7); //axis
+  //if (ext_pixel.canShow())
+  //  ext_pixel.show();
+  //auto a = 0;
+  //a = readMuxChannel(0); //nub 
+  //a = readMuxChannel(1); //nub
+  //a = readMuxChannel(2); //nub
+  //a = readMuxChannel(3); //nub
+  //a = readMuxChannel(4); //axis
+  //a = readMuxChannel(5); //axis
+  //a = readMuxChannel(6); //axis
 
 }
-uint16_t a = 2000;
 
 uint16_t readMuxChannel(uint8_t channel) {
-  digitalWrite(MUX_S1, bitRead(channel,0));
-  digitalWrite(MUX_S2, bitRead(channel,1));
-  digitalWrite(MUX_S3, bitRead(channel,2));
-  digitalWrite(MUX_S4, bitRead(channel,3));
-  delay(1);
+  digitalWrite(MUX_S1, ((channel >> 0) & 0x01));
+  digitalWrite(MUX_S2, ((channel >> 1) & 0x01));
+  digitalWrite(MUX_S3, ((channel >> 2) & 0x01));
+  digitalWrite(MUX_S4, ((channel >> 3) & 0x01));
   digitalWrite(MUX_EN, LOW);
+  delay(1);
   uint16_t value = analogRead(MUX_SIG);
   digitalWrite(MUX_EN, HIGH);
   return value;
@@ -189,19 +190,16 @@ uint8_t readButton(uint8_t button) {
 // function that executes whenever data is received from master
 // this function is registered as an event, see setup()
 void receive(int len) {
-  memset(i2cBuff, 0 ,i2cBuffUsed);
-  for (int i = 0; Wire.available()>0; i++) {
-    ((uint8_t*)i2cBuff)[i] = Wire.read();
-    i2cBuffUsed = i;
-  }
-  //i2cBuffUsed = Wire.readBytes((uint8_t*)i2cBuff, len);
+  command.command_type = Wire.read();
+  command.id = Wire.read();
 
-  switch (command->command_type) {
+  switch (command.command_type) {
     case SetLed: {
-      led.raw = (uint32_t)command->data;
-      ext_pixel.setPixelColor(command->id, led.R, led.G, led.B);
+
+      //led.raw = (uint32_t)command->data;
+      //ext_pixel.setPixelColor(command->id, led.R, led.G, led.B);
       break;
-    }
+    }   
     case SetAxis: {
       break;
     }
@@ -212,20 +210,22 @@ void receive(int len) {
       break;
     }
     case GetLed: {
-      command->data = (uint32_t*)ext_pixel.getPixelColor(command->id);
-      i2cBuffUsed += sizeof(uint32_t);
+      //((uint32_t*)command.buf)[0] = ext_pixel.getPixelColor(command->id);
+      //i2cBuffUsed += sizeof(uint32_t);
       break; 
     }
     case GetAxis: {
       //a = readMuxChannel(command->id);
-      command->data = (uint16_t*)a;
-      //command->data = (uint16_t*)readMuxChannel(command->id);
-      i2cBuffUsed += sizeof(uint16_t);
+      //command->data = (uint16_t*)a;
+
+      ((uint16_t*)i2cDataBuf)[0] = readMuxChannel(command.id);
+
+      i2cDataSize = sizeof(uint16_t);
       break;
     }
     case GetButton: {
-      command->data = (uint8_t*)readButton(command->id);
-      i2cBuffUsed += sizeof(uint8_t);
+      i2cDataBuf[0] = readButton(command.id);
+      i2cDataSize = sizeof(uint8_t);
 
       //Serial.print("COMMAND TYPE: ");
       //Serial.print(command->command_type);
@@ -251,17 +251,16 @@ void receive(int len) {
 // Called when the I2C slave is read from
 void request() {
     
-  Wire.write((uint8_t*)i2cBuff, i2cBuffUsed);
+  Wire.write(i2cDataBuf, i2cDataSize);
 }
 
 
 void setup1() {
 
-  if (i2cBuff == NULL) {
-    i2cBuff = (uint8_t*)malloc(i2cBuffSize);
-    command = (struct Command*)i2cBuff;
-  }
-  memset(i2cBuff, 0 ,i2cBuffSize);
+  //if (i2cBuff == NULL) {
+  //  i2cBuff = (uint8_t*)malloc(i2cBuffSize);
+  //  command = (struct Command*)i2cBuff;
+  //}
 
   pinMode(D0, OUTPUT_2MA);
   pinMode(D1, OUTPUT_2MA);
@@ -270,7 +269,11 @@ void setup1() {
 
   Wire.setSDA(I2C_SDA);
   Wire.setSCL(I2C_SCL);
-  Wire.setClock(100000);
+#ifdef I2CSPEED
+  //Wire.setClock(I2CSPEED);
+#else
+  Wire.setClock(1000);
+#endif
   Wire.begin(i2cADDR);
 
   Wire.onReceive(receive);

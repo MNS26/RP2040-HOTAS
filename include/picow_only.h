@@ -504,9 +504,21 @@ void led_control()
 //extern bool LED_on;
   switch (act_state.toInt())
   {
-    case 1:
-    case 0: {
-      digitalWrite(LED_BUILTIN, act_state.toInt());
+    case 0: {  //off
+      LED_on = false;
+      LED_breathe = false;
+      digitalWrite(LED_BUILTIN, false);
+      break;
+    }
+    case 1: {  //on
+      LED_on = true;
+      LED_breathe = false;
+      digitalWrite(LED_BUILTIN, true);
+      break;
+    }
+    case 2: {  //on
+      LED_on = true;
+      LED_breathe = true;
       break;
     }
   default:
@@ -580,6 +592,24 @@ void setupWifi() {
   ////////////////////////////////
   // WEB SERVER INIT
 
+  // Control builtin-led
+  server.on("/led_set", led_control);
+
+  server.on("/led_brightness", NULL);
+
+  // Get builtin-led
+  server.on("/led_get", get_led);
+
+  // Get Uptime
+  server.on("/uptime", uptime);
+
+  server.on("/test.svg", drawGraph);
+
+  // Get I2C slave list
+  server.on("/listI2C", i2cResult);
+
+  server.on("/settings",NULL);
+
   // Filesystem status
   server.on("/status", HTTP_GET, handleStatus);
 
@@ -605,11 +635,7 @@ void setupWifi() {
   server.onNotFound(handleNotFound);
 
 
-  server.on("/led_set", led_control);
-  server.on("/led_get", get_led);
-  server.on("/uptime", uptime);
-  server.on("/test.svg", drawGraph);
-  server.on("/listI2C", i2cResult);
+  
   // Start server
   server.begin();
   DBG_OUTPUT_PORT.println("HTTP server started");
