@@ -568,7 +568,52 @@ void i2cResult() {
   jsonString += "]";
   
 
-  server.send(200, "plain/text", jsonString);
+  server.send(200, "application/json", jsonString);
+}
+
+void updateHid() {
+  
+  if (server.hasArg("axis")) {
+    String axis = server.arg("axis");
+    AxisCount = (axis.toInt())?((axis.toInt()>0)?axis.toInt():0):0;
+    server.send(200);
+  }  
+
+  if (server.hasArg("buttons")) {
+    String buttons = server.arg("buttons");
+    ButtonCount = (buttons.toInt())?((buttons.toInt()>0)?buttons.toInt():0):0;
+    server.send(200);
+  }
+
+  if (server.hasArg("hats")) {
+    String hats = server.arg("hats");
+    HatCount = (hats.toInt())?((hats.toInt()>0)?hats.toInt():0):0;
+    server.send(200);
+  }
+
+  if (server.hasArg("getValues")) {
+    String jsonString;
+    jsonString = "[";
+    jsonString += AxisCount;
+    jsonString += ",";
+    jsonString += ButtonCount;
+    jsonString += ",";
+    jsonString += HatCount;
+    jsonString += "]";
+    server.send(200, "application/json", jsonString);
+  }
+  if (server.hasArg("restart")) {
+    Serial.print("axis: ");
+    Serial.println(AxisCount);
+    Serial.print("buttons: ");
+    Serial.println(ButtonCount);
+    Serial.print("hats: ");
+    Serial.println(HatCount);
+    Serial.println("restart USB");
+    delay(100);
+    setupUSB();
+    server.send(200);
+  }
 }
 
 void setupWifi() {
@@ -610,18 +655,17 @@ void setupWifi() {
 
   server.on("/settings",NULL);
 
+  server.on("/settings/updatehid",updateHid);
+
+
   // Filesystem status
   server.on("/status", HTTP_GET, handleStatus);
-
   // List directory
   server.on("/list", HTTP_GET, handleFileList);
-
   // Load editor
   server.on("/edit", HTTP_GET, handleGetEdit);
-
   // Create file
   server.on("/edit", HTTP_PUT, handleFileCreate);
-
   // Delete file
   server.on("/edit", HTTP_DELETE, handleFileDelete);
 
@@ -639,39 +683,4 @@ void setupWifi() {
   // Start server
   server.begin();
   DBG_OUTPUT_PORT.println("HTTP server started");
-}
-
-void wifiLoop() {
-  server.handleClient();
-  MDNS.update();
-
-if (millis() - check_firmware_update > 1000) {
-
-  if (fileSystem->exists("/firmware.bin")) 
-  { firmware = fileSystem->open("/firmware.bin", "r"); }
-  if (fileSystem->exists("/firmware.bin.gz")) 
-  { firmware = fileSystem->open("/firmware.bin.gz", "r"); }
-  if (firmware) {
-      String filename = firmware.name();
-      //Update.begin(firmware.size(), U_FLASH);
-      //Update.writeStream(firmware);
-      //if (Update.end(true)) {
-      //  DBG_OUTPUT_PORT.println(F("Update finished!"));
-      //} else {
-      //  DBG_OUTPUT_PORT.println(F("Update error!"));
-      //  DBG_OUTPUT_PORT.println(Update.getError());
-      //  Update.printError(DBG_OUTPUT_PORT);
-      //}
-      //picoOTA.begin();
-      //picoOTA.addFile(firmware.name());
-      //picoOTA.commit();
-      
-      firmware.close();
-      fileSystem->remove(filename);
-      delay(100);
-      //rp2040.reboot();
-    }
-  }
-  
-  
 }

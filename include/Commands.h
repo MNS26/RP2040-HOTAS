@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <Arduino.h>
-enum commands {
+enum command {
 
  SetConfig  = 0B0000000000000010, 
  GetConfig  = 0B0000000000000011, 
@@ -54,8 +54,8 @@ enum commands {
 // SET/GET BIT -----------------/
   UpdateFirmware = 0B1111111111111111 // ONLY USED FOR MODIFYING THE FIRMWARE
 };
-enum ConfigSubCommands {
-  GetDigital = 0B00000001,
+enum ConfigCommands {
+  AnalogResolution = 0B00000001,
   GetAnalog  = 0B00000010
 };
 

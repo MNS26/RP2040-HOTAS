@@ -38,6 +38,7 @@ int i2cADDR = 0x21;
 
 //Adafruit_NeoPixel ext_pixel(EXT_NUM_PIXELS, WS2812_PIN);
 
+uint8_t ADCresolution = 11;
 volatile RGBW led;
 uint8_t i2cDataSize = 0;
 struct __attribute__((packed, aligned(1))) Command{
@@ -60,7 +61,7 @@ void setup() {
 
   //ext_pixel.begin();
 
-  analogReadResolution(11);
+  analogReadResolution(ADCresolution);
 
   pinMode(BUTTON1, OUTPUT_2MA);
   pinMode(BUTTON2, OUTPUT_2MA);
@@ -114,16 +115,16 @@ void loop() {
 
 }
 
-uint16_t readMuxChannel(uint8_t channel) {
+template <typename T> T readMuxChannel(uint8_t channel) {
   digitalWrite(MUX_S1, ((channel >> 0) & 0x01));
   digitalWrite(MUX_S2, ((channel >> 1) & 0x01));
   digitalWrite(MUX_S3, ((channel >> 2) & 0x01));
   digitalWrite(MUX_S4, ((channel >> 3) & 0x01));
   digitalWrite(MUX_EN, LOW);
   delay(1);
-  uint16_t value = analogRead(MUX_SIG);
+  T value = analogRead(MUX_SIG);
   digitalWrite(MUX_EN, HIGH);
-  return value;
+  return (T)value;
 }
 
 uint8_t readButton(uint8_t button) {
@@ -190,21 +191,18 @@ uint8_t readButton(uint8_t button) {
 // function that executes whenever data is received from master
 // this function is registered as an event, see setup()
 void receive(int len) {
-  command.command_type = Wire.read();
-  command.id = Wire.read();
+  uint16_t command = Wire.read();
+  uint16_t id = Wire.read();
 
-  switch (command.command_type) {
+  switch (command) {
     case SetLed: {
 
       //led.raw = (uint32_t)command->data;
       //ext_pixel.setPixelColor(command->id, led.R, led.G, led.B);
       break;
-    }   
-    case SetAxis: {
-      break;
     }
-    case SetButton: {
-      break;
+    case SetConfig: {
+
     }
     case GetConfig: {
       break;
@@ -218,13 +216,14 @@ void receive(int len) {
       //a = readMuxChannel(command->id);
       //command->data = (uint16_t*)a;
 
-      ((uint16_t*)i2cDataBuf)[0] = readMuxChannel(command.id);
-
+      //((uint16_t*)i2cDataBuf)[0] = readMuxChannel(id);
+      ((uint16_t*)i2cDataBuf)[0] = readMuxChannel<uint16_t>(id);
+      //((uint16_t*)i2cDataBuf)[0] = readMuxChannel(id,uin);
       i2cDataSize = sizeof(uint16_t);
       break;
     }
     case GetButton: {
-      i2cDataBuf[0] = readButton(command.id);
+      i2cDataBuf[0] = readButton(id);
       i2cDataSize = sizeof(uint8_t);
 
       //Serial.print("COMMAND TYPE: ");

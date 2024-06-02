@@ -17,7 +17,7 @@
 #define MAX_HID_REPORTDESC_SIZE 4096
 
 
-
+bool rebootUpdate = false;
 bool LED_on;
 bool LED_breathe;
 uint8_t LED_brightness;
@@ -43,26 +43,18 @@ uint32_t nextScanPrint = millis();
 
 uint16_t AxisResolution = 11;
 int AxisCount = 8;
-int ButtonCount = 32;
-int HatCount= 2;
+int ButtonCount = 64;
+int HatCount = 2;
 hid_Joystick_report_t* jr = NULL;
 hid_Joystick_report_t* jr_old = NULL;
-uint8_t* _hidJoystickReportDesc = NULL;
-uint16_t _hidJoystickReportDescSize = 0;
-uint8_t* _hidKBMReportDesc = NULL;
-uint16_t _hidKBMReportDescSize = 0;
 size_t buffsize;
 bool* readyToSend = NULL;
 
+  uint8_t* hidJoystickReportDesc = NULL;
+  uint16_t hidJoystickReportDescSize = 0;
+
 Adafruit_USBD_HID hid_joystick;
 Adafruit_USBD_HID hid_kbm;
-
-struct __attribute__((packed, aligned(1))) Command{
-  uint16_t command_type;
-  uint16_t id;
-}command;
-uint8_t i2cDataBuf[64];
-
 
 byte i2cIDs[128];
 
@@ -91,9 +83,9 @@ SDFSConfig fileSystemConfig = SDFSConfig();
 #else
 #error Please select a filesystem first by uncommenting one of the "#define USE_xxx" lines at the beginning of the sketch.
 #endif
+void setupUSB();
 
 static bool fsOK;
-bool pauseForScan = false;
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
 #include "picow_only.h"
 extern FS* fileSystem;
@@ -140,112 +132,52 @@ x52::pro::JoystickClient<D22, D21, D26, D20> joystick_client;
 #include "hid_Report_Callback.h"
 
 
-template <typename T> T GetFromI2cSlave(int Slave, int cmd, int id)
-{
-  Wire.beginTransmission(Slave);
-  Wire.write(cmd);
-  Wire.write(id);
-  Wire.endTransmission();
-  Wire.requestFrom(Slave, sizeof(T));
-
-  return (T) 0;
-}
-
-void SetI2cSlave(int Slave, int cmd, int id)
-{
-
-}
-
 bool getButtonI2cSlave (int slaveID, int inputID) {
-  command.command_type = GetButton;
-  command.id = inputID;
   Wire.beginTransmission(slaveID);
-  Wire.write(command.command_type);
-  Wire.write(command.id);
+  Wire.write(GetButton);
+  Wire.write(inputID);
   Wire.endTransmission();
   buffsize = sizeof(bool);
   Wire.requestFrom(slaveID, buffsize);
   return Wire.read();
-  //i2cDataBuf[0] =Wire.read();
-  //return i2cDataBuf[0];
-
-  // for (int i = 0; Wire.available()>0; i++) {
-  //   ((uint8_t*)i2cBuff)[i] = Wire.read();
-  //   i2cBuffUsed = i;
-  // }
-  // Serial.print("COMMAND TYPE: ");
-  // Serial.print(command->command_type);
-  // Serial.print(" GetButton ID: ");
-  // Serial.print(command->id);
-
-  // Serial.print(" STATE: ");
-  // Serial.println(*(uint8_t*)command->data);
-  // Serial.print("BUFF: ");
-  // for (int i = 0; i < i2cBuffUsed; i++) {
-  //   Serial.print(((uint8_t*)i2cBuff)[i], BIN);
-  // }
-  // Serial.println();
-
 }
 
-
-uint16_t getAxisI2cSlave (int slaveID, int inputID) {
-  command.command_type = GetAxis;
-  command.id = inputID;
+template <typename T> T getAxisI2cSlave (int slaveID, int inputID) {
   Wire.beginTransmission(slaveID);
-  Wire.write(command.command_type);
-  Wire.write(command.id);
+  Wire.write(GetAxis);
+  Wire.write(inputID);
   Wire.endTransmission();
-  Wire.requestFrom(slaveID, sizeof(uint16_t));
-  Wire.readBytes(i2cDataBuf, 2);
+  Wire.requestFrom(slaveID, sizeof(T));
+  T buf;
   for (int i = 0; Wire.available()>0; i++) {
-    i2cDataBuf[i] = Wire.read();
+    ((uint8_t*)buf)[i] = Wire.read();
   }
-  return ((uint16_t*)i2cDataBuf)[0];
+  return (T)buf;
 }
-
-
-
 
 uint32_t getLedI2cSlave (int slaveID, int LedID) {
-  command.command_type = GetLed;
-  command.id = LedID;
   Wire.beginTransmission(slaveID);
-  Wire.write(command.command_type);
-  Wire.write(command.id);
+  Wire.write(GetLed);
+  Wire.write(LedID);
   Wire.endTransmission();
   Wire.requestFrom(slaveID, sizeof(uint32_t));
+  uint32_t buf;
   for (int i = 0; Wire.available()>0; i++) {
-    i2cDataBuf[i] = Wire.read();
+    ((uint8_t*)buf)[i] = Wire.read();
   }
-  // Serial.print("COMMAND TYPE: ");
-  // Serial.print(command->command_type);
-  // Serial.print(" GetButton ID: ");
-  // Serial.print(command->id);
-
-  // Serial.print(" STATE: ");
-  // Serial.println(*(uint32_t*)command->data);
-  // Serial.print("BUFF: ");
-  // for (int i = 0; i < i2cBuffUsed; i++) {
-  //   Serial.print(((uint8_t*)i2cBuff)[i], BIN);
-  // }
-  // Serial.println();
-
-  return ((uint32_t*)i2cDataBuf)[0];
+  return buf;
 }
 
 void setLedI2cSlave (int slaveID, int LedID, uint32_t rgbw) {
-  command.command_type = GetLed;
-  command.id = LedID;
   Wire.beginTransmission(slaveID);
-  Wire.write(command.command_type);
-  Wire.write(command.id);
+  Wire.write(GetLed);
+  Wire.write(LedID);
   Wire.write(rgbw);
   Wire.endTransmission();
 }
 
 // I2C scanner
-void i2cScanner() {
+void SerialI2cScanner() {
   Serial.print("\n\r    I2C Bus Scan\n\r");
   Serial.print("    0 1 2 3 4 5 6 7 8 9 A B C D E F\n\r");
   for (int addr = 0; addr < (1 << 7); ++addr) {
@@ -262,26 +194,16 @@ void i2cScanner() {
   }
 }
 
-/*
-  =========
-    Setup
-  =========
- */
 
-void setup() {
+void progressCallBack(size_t currSize, size_t totalSize) {
+	  Serial.printf("CALLBACK:  Update process at %d of %d bytes...\n", currSize, totalSize);
+}
 
-  // if ( i2cBuff == NULL ) {
-  //   i2cBuff = (uint8_t*)malloc(i2cBuffSize);
-  //   command = (struct Command*)i2cBuff;
-  // }
-  if (_hidKBMReportDesc == nullptr) {
-    _hidKBMReportDesc = (uint8_t*)malloc(150);
-    memset(_hidKBMReportDesc, 0, 150);
-  }
-  if (_hidJoystickReportDesc == nullptr) {
-    _hidJoystickReportDesc = (uint8_t*)malloc(MAX_HID_REPORTDESC_SIZE);
-    memset(_hidJoystickReportDesc, 0, MAX_HID_REPORTDESC_SIZE);
-  }
+void setupUSB() {
+
+  // reset the connection
+ TinyUSBDevice.detach();
+
 
 
   /* Calculate how many "Devices" we will need to emulate	*/
@@ -290,7 +212,7 @@ void setup() {
   DeviceCountJoystick = (int)(std::ceil((float)(AxisCount) / 8)); 
   
   // Limitting 32 buttons per "Device" since older games may not see more (for example Elite Dangerous doesnt see more than 32)
-  DeviceCountButtons = (int)(std::ceil((float)(ButtonCount) / 32)); 
+  DeviceCountButtons = (int)(std::ceil((float)(ButtonCount) / 56)); 
 
   // Limitting 4 hats per "Device" since windows can see 4 max per device (linux only sees 1 per device though... strange)
   DeviceCountHat = (int)(std::ceil((float)(HatCount) / 4)); 
@@ -304,55 +226,65 @@ void setup() {
     DeviceCount = DeviceCountHat;
   }
 
-  for (int d = 0; d < DeviceCount; d++) {
-    _hidJoystickReportDescSize = AddHeader(_hidJoystickReportDesc, _hidJoystickReportDescSize, d+1);
-    if (AxisCount > 0) {
-      _hidJoystickReportDescSize = AddAxis(_hidJoystickReportDesc, _hidJoystickReportDescSize, HID_USAGE_DESKTOP_X, AxisCount, AxisResolution);
-      AxisCount -= 8;
-      if (AxisCount < 0) {AxisCount = 0;}
-    }
-    if (ButtonCount > 0) {
-      _hidJoystickReportDescSize = AddButtons(_hidJoystickReportDesc, _hidJoystickReportDescSize, ButtonCount);
-      ButtonCount -= 32;
-      if (ButtonCount < 0) {ButtonCount = 0;}
-    }
-    if (HatCount > 0) {
-      _hidJoystickReportDescSize = AddHats(_hidJoystickReportDesc, _hidJoystickReportDescSize, HatCount);
-      HatCount-= 4;
-      if (HatCount < 0) {HatCount = 0;}
-    }
-    _hidJoystickReportDescSize = AddCollectionEnd(_hidJoystickReportDesc, _hidJoystickReportDescSize);
-  }
 
 
-  jr = new hid_Joystick_report_t[DeviceCount];
-  jr_old = new hid_Joystick_report_t[DeviceCount];
+
+  // Calculate size needed for joystick descriptor
+  // Header  : 6 + 2 + 4 = 12
+  // Axis    : 2 + (count \* 2) + (2 + (1 + type) +  (2 \* 3) + 2 + 2 + 2) + 6
+  // Buttons :
+  // Hats    :
+  //uint16_t JsRepAlocSize = 12;
+  //JsRepAlocSize += 2 + (AxisCount*((int)(std::ceil((float)(AxisResolution)/8) 
+
+
+  uint8_t const desc_hid_report[] = {
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(1)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(2)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(3)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(4)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(5)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(6)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(7)),
+  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(8)),
+  };
+  if (hidJoystickReportDesc == NULL)
+    hidJoystickReportDesc = (uint8_t*)malloc(MAX_HID_REPORTDESC_SIZE);
+  memset(hidJoystickReportDesc, 0, MAX_HID_REPORTDESC_SIZE);
+  hidJoystickReportDescSize=0;
+
+//  memcpy(hidJoystickReportDesc+hidJoystickReportDescSize,desc_hid_report,sizeof(desc_hid_report));
+//  hidJoystickReportDescSize+=sizeof(desc_hid_report);
+//  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,9,AxisCount,AxisResolution,ButtonCount,HatCount);
+  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount);
+
+
+
+
+
+  if (jr == NULL)
+    jr = new hid_Joystick_report_t[DeviceCount];
+  if (jr_old == NULL)
+    jr_old = new hid_Joystick_report_t[DeviceCount];
   memset(jr, 0, sizeof(jr));
   memset(jr_old, 0, sizeof(jr_old));
   readyToSend = (bool*)readyToSend[DeviceCount];
 
 
-#if defined(ARDUINO_ARCH_MBED) && defined(ARDUINO_ARCH_RP2040)
-  // Manual begin() is required on core without built-in support for TinyUSB such as
-  // - mbed rp2040
-  TinyUSB_Device_Init(0);
-#endif
 
-  SerialTinyUSB.begin(115200);
+
   TinyUSBDevice.setID(VID,PID);
   TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
   TinyUSBDevice.setProductDescriptor("RP2040-HOTAS");
 
-  if (USBDevice.ready()||USBDevice.mounted()) {
-    USBDevice.detach();
-  }
   // start the USB device
-   USBDevice.attach();
-
+  USBDevice.attach();
+  SerialTinyUSB.begin(115200);
+  
   if (DeviceCount > 0) {
     hid_joystick.setPollInterval(2);
     hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
-    hid_joystick.setReportDescriptor(_hidJoystickReportDesc, _hidJoystickReportDescSize);
+    hid_joystick.setReportDescriptor(hidJoystickReportDesc, hidJoystickReportDescSize);
     hid_joystick.setReportCallback(get_report_callback, set_report_callback);
     hid_joystick.begin();
   }
@@ -367,9 +299,30 @@ void setup() {
     hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
     hid_kbm.begin();
   }
+//  memset(hidJoystickReportDesc,0,hidJoystickReportDescSize);
+//  free(hidJoystickReportDesc);
+  
   // wait until device mounted
   //while (!TinyUSBDevice.mounted()){	delay(1); }
   //delay(100);
+}
+/*
+  =========
+    Setup
+  =========
+ */
+
+void setup() {
+
+
+#if defined(ARDUINO_ARCH_MBED) && defined(ARDUINO_ARCH_RP2040)
+  // Manual begin() is required on core without built-in support for TinyUSB such as
+  // - mbed rp2040
+  TinyUSB_Device_Init(0);
+#endif
+
+  setupUSB();
+
 
   //SPI.setRX(4);
   //SPI.setTX(7);
@@ -402,8 +355,39 @@ uint32_t buttons;
 void loop()
 {
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
-  wifiLoop();
+  server.handleClient();
+  MDNS.update();
+
+  if (millis() - check_firmware_update > 1000) {
+    if (fileSystem->exists("/firmware.bin")) {
+      File firmware =  fileSystem->open("/firmware.bin","r");
+      if (firmware) {
+        Serial.println(F("found!"));
+        Serial.println(F("Try to update!"));
+        Update.onProgress(progressCallBack);
+        Update.begin(firmware.size(), U_FLASH);
+        Update.writeStream(firmware);
+        if (Update.end()){
+          Serial.println(F("Update finished!"));
+          rebootUpdate = true;
+        }else{
+          Serial.println(F("Update error!"));
+          Serial.println(Update.getError());
+        }
+        firmware.close();
+        if (fileSystem->rename("/firmware.bin", "/firmware.bak")){
+          Serial.println(F("Firmware rename succesfully!"));
+        }else{
+          Serial.println(F("Firmware rename error!"));
+        }
+      }
+      if (rebootUpdate) {
+        rp2040.reboot();
+      }
+    }
+  }
 #endif
+
   if(TinyUSBDevice.ready()) {
     if (micros() - lastTime > 100000) {
       lastTime = micros();
@@ -473,7 +457,7 @@ void loop()
     jr[report].hat2 != jr_old[report].hat2     ||
     jr[report].buttons != jr_old[report].buttons) {
       if( TinyUSBDevice.ready()) {
-        hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
+        //hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
         readyToSend[report] = false;
         jr_old[report] = jr[report];
       }
@@ -531,29 +515,29 @@ void setup1()
 void loop1()
 {
 
-  // if (millis() - nextScan > 100) {
-  //     for (int addr = 0; addr < (1 << 7); ++addr) {
+  if (millis() - nextScan > 100) {
+      for (int addr = 0; addr < (1 << 7); ++addr) {
 
-  //       // Perform a 0-byte read from the probe address. The read function
-  //       // returns a negative result NAK'd any time other than the last data
-  //       // byte. Skip over reserved addresses.
-  //       int result;
-  //       if ((addr & 0x78) == 0 || (addr & 0x78) == 0x78)
-  //         result = -1;
-  //       else
-  //         Wire.beginTransmission(addr);
-  //       result = Wire.endTransmission();
-  //       if (result == 0)
-  //         i2cIDs[addr] = 1;
-  //       else
-  //         i2cIDs[addr] = 0;
-  //     }
-  //     nextScan = millis();
-  // }
-  // if (millis() - nextScanPrint > 1000) {
-  //   i2cScanner();
-  //   nextScanPrint = millis();
-  // }
+        // Perform a 0-byte read from the probe address. The read function
+        // returns a negative result NAK'd any time other than the last data
+        // byte. Skip over reserved addresses.
+        int result;
+        if ((addr & 0x78) == 0 || (addr & 0x78) == 0x78)
+          result = -1;
+        else
+          Wire.beginTransmission(addr);
+        result = Wire.endTransmission();
+        if (result == 0)
+          i2cIDs[addr] = 1;
+        else
+          i2cIDs[addr] = 0;
+      }
+      nextScan = millis();
+  }
+  if (millis() - nextScanPrint > 1000) {
+    SerialI2cScanner();
+    nextScanPrint = millis();
+  }
 
 
 
@@ -663,19 +647,19 @@ switch (state.mode) {
     case 0b1001:  jr[0].hat2 = 0b0010; break;
     default: jr[0].hat2 = 0b0000; break;
   }
-  jr[0].x = map_clamped<uint16_t>(state.x, 0, 1023, 0, 2047);
-  jr[0].y = map_clamped<uint16_t>(state.y, 0, 1023, 0, 2047);
-  jr[0].z = map_clamped<uint16_t>(state.z, 0, 1023, 0, 2047);  
-  jr[0].rx = map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0);
+  jr[0].x = (jr[0].x + map_clamped<uint16_t>(state.x, 0, 1023, 0, 2047))/2;
+  jr[0].y = (jr[0].y + map_clamped<uint16_t>(state.y, 0, 1023, 0, 2047))/2;
+  jr[0].z = (jr[0].z + map_clamped<uint16_t>(state.z, 0, 1023, 0, 2047))/2;  
+  jr[0].rx = (jr[0].rx + map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0))/2;
 
   // 1 = ??? (nub X?)
   // 2 = ??? (nub Y?)
   // 3 = I dial
   // 4 = E dial
   // 5 = ??? (slider ?)
-  Serial.print(jr[0].rx, BIN);
-  Serial.print(" ");
-  Serial.println(getAxisI2cSlave(0x21, 5),BIN);
+  //Serial.print(jr[0].rx, BIN);
+  //Serial.print(" ");
+  //Serial.println(getAxisI2cSlave<uint16_t>(0x21, 5),BIN);
 
   //jr[0].ry = getAxisI2cSlave(0x21, 5);
   //jr[0].rz = getAxisI2cSlave(0x21, 4);
