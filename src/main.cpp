@@ -4,6 +4,7 @@
 #include "Commands.h"
 #include "Common.h"
 #include "hid.h"
+#include "hid_minimal.h"
 #include "HID_descriptor.h"
 #include "HID_Report.h"
 #include <Adafruit_TinyUSB.h>
@@ -41,17 +42,16 @@ uint16_t hue;
 uint32_t nextScan = millis();
 uint32_t nextScanPrint = millis();
 
-uint16_t AxisResolution = 11;
-int AxisCount = 8;
-int ButtonCount = 64;
-int HatCount = 2;
+uint32_t AxisResolution = 11;
+uint8_t AxisCount = 8;
+uint8_t ButtonCount = 64;
+uint8_t HatCount = 2;
+uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
+uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
 hid_Joystick_report_t* jr = NULL;
 hid_Joystick_report_t* jr_old = NULL;
 size_t buffsize;
 bool* readyToSend = NULL;
-
-  uint8_t* hidJoystickReportDesc = NULL;
-  uint16_t hidJoystickReportDescSize = 0;
 
 Adafruit_USBD_HID hid_joystick;
 Adafruit_USBD_HID hid_kbm;
@@ -199,6 +199,12 @@ void progressCallBack(size_t currSize, size_t totalSize) {
 	  Serial.printf("CALLBACK:  Update process at %d of %d bytes...\n", currSize, totalSize);
 }
 
+
+typedef struct {
+  uint8_t x, y, z;
+  uint8_t buttons[10];
+} report_test;
+report_test test;
 void setupUSB() {
 
   // reset the connection
@@ -237,27 +243,24 @@ void setupUSB() {
   //uint16_t JsRepAlocSize = 12;
   //JsRepAlocSize += 2 + (AxisCount*((int)(std::ceil((float)(AxisResolution)/8) 
 
+  
+//  uint8_t const desc_hid_report[] = {
+//    0x5,0x1,0x9,0x4,0xa1,0x1,0xa1,0x2,0x85,0x1,0x75,0x8,0x15,0x0,0x26,0xff,0x0,0x35,0x0,0x46,0xff,0x0,0x9,0x30,0x9,0x31,0x9,0x32,0x95,0x3,0x81,0x2,0xa4,0x95,0x50,0x75,0x1,0x26,0x1,0x0,0x46,0x1,0x0,0x5,0x9,0x19,0x1,0x29,0x50,0x81,0x2,0xb4,0xc0,0xa1,0x2,0x85,0x2,0x75,0x8,0x95,0x1,0x15,0x0,0x26,0xff,0x0,0x35,0x0,0x46,0xff,0x0,0x9,0x30,0x81,0x2,0xc0,0xc0,//  TUD_HID_REPORT_DESC_GAMEPAD_(VA_HID_REPORT_ID(10)),
+//  };
 
-  uint8_t const desc_hid_report[] = {
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(1)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(2)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(3)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(4)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(5)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(6)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(7)),
-  TUD_HID_REPORT_DESC_GAMEPAD(VA_HID_REPORT_ID(8)),
-  };
-  if (hidJoystickReportDesc == NULL)
-    hidJoystickReportDesc = (uint8_t*)malloc(MAX_HID_REPORTDESC_SIZE);
+  uint8_t* hidJoystickReportDesc = NULL;
+  uint16_t hidJoystickReportDescSize = 0;
+
+  hidJoystickReportDesc = (uint8_t*)malloc(MAX_HID_REPORTDESC_SIZE);
   memset(hidJoystickReportDesc, 0, MAX_HID_REPORTDESC_SIZE);
   hidJoystickReportDescSize=0;
 
+
 //  memcpy(hidJoystickReportDesc+hidJoystickReportDescSize,desc_hid_report,sizeof(desc_hid_report));
 //  hidJoystickReportDescSize+=sizeof(desc_hid_report);
-//  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,9,AxisCount,AxisResolution,ButtonCount,HatCount);
+//  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount, true);
   hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount);
-
+  
 
 
 
@@ -314,7 +317,6 @@ void setupUSB() {
 
 void setup() {
 
-
 #if defined(ARDUINO_ARCH_MBED) && defined(ARDUINO_ARCH_RP2040)
   // Manual begin() is required on core without built-in support for TinyUSB such as
   // - mbed rp2040
@@ -340,11 +342,15 @@ void setup() {
 
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   setupWifi();
+  configTime(3 * 3600, 1, "nl.pool.ntp.org", "0.europe.pool.ntp.org");
+
+
 #endif
+  //watchdog_enable(2000,true);
 }
 
 
-uint32_t buttons;
+uint64_t buttons;
 
 
 /*
@@ -354,6 +360,7 @@ uint32_t buttons;
  */
 void loop()
 {
+  //watchdog_update();
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   server.handleClient();
   MDNS.update();
@@ -443,8 +450,7 @@ void loop()
   
   if (micros() - update_cooldown > 20) {
     update_cooldown = micros();
-    if ( readyToSend[report] && 
-    //if ( 
+    if ( 
     jr[report].x != jr_old[report].x           ||
     jr[report].y != jr_old[report].y           ||
     jr[report].z != jr_old[report].z           ||
@@ -457,8 +463,17 @@ void loop()
     jr[report].hat2 != jr_old[report].hat2     ||
     jr[report].buttons != jr_old[report].buttons) {
       if( TinyUSBDevice.ready()) {
-        //hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
-        readyToSend[report] = false;
+        
+        //test.x = map_clamped<uint8_t>(jr[0].x,0,UINT8_MAX, 0 ,2047);
+        //test.y = map_clamped<uint8_t>(jr[0].y,0,UINT8_MAX, 0 ,2047);
+        //test.z = map_clamped<uint8_t>(jr[0].z,0,UINT8_MAX, 0 ,2047);
+        //for (uint8_t i = 0; i< sizeof(test.buttons); i++) {
+        //  test.buttons[i]= (uint8_t)random();
+        //}
+        //hid_joystick.sendReport(1, &test, sizeof(test));
+        //hid_joystick.sendReport(3, &test, sizeof(test));
+        hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
+        readyToSend[report] = true;
         jr_old[report] = jr[report];
       }
       if (TinyUSBDevice.suspended()) {
@@ -481,15 +496,32 @@ void setup1()
   pinMode(23,OUTPUT);
   digitalWrite(23,HIGH); // this forces the switch mode power supply into pwm mode (less efficient but also less noise) 
 #endif
-  pinMode(A1,INPUT);
-  pinMode(A2,INPUT);
-  pinMode(D0, OUTPUT_2MA);
-  pinMode(D1, OUTPUT_2MA);
-  digitalWrite(D0, HIGH);
-  digitalWrite(D1, HIGH);
+  pinMode(27,INPUT);
+  pinMode(28,INPUT);
+  pinMode(0, OUTPUT_2MA);
+  pinMode(1, OUTPUT_2MA);
+  pinMode(15, OUTPUT_2MA);
+  pinMode(14, OUTPUT_2MA);
+  pinMode(13, OUTPUT_2MA);
+  pinMode(12, OUTPUT_2MA);
+  pinMode(11, OUTPUT_2MA);
+  pinMode(10, OUTPUT_2MA);
+  pinMode(9, OUTPUT_2MA);
+  pinMode(8, OUTPUT_2MA);
+  digitalWrite(0, HIGH);
+  digitalWrite(1, HIGH);
+  digitalWrite(15, HIGH);
+  digitalWrite(14, HIGH);
+  digitalWrite(13, HIGH);
+  digitalWrite(12, HIGH);
+  digitalWrite(11, HIGH);
+  digitalWrite(10, HIGH);
+  digitalWrite(9, HIGH);
+  digitalWrite(8, HIGH);
+  
   Wire.setTimeout(10);
-  Wire.setSDA(D0);
-  Wire.setSCL(D1);
+  Wire.setSDA(0);
+  Wire.setSCL(1);
 #ifdef I2CSPEED
   Wire.setClock(I2CSPEED);
 #else
@@ -534,7 +566,7 @@ void loop1()
       }
       nextScan = millis();
   }
-  if (millis() - nextScanPrint > 1000) {
+  if (millis() - nextScanPrint > 10000) {
     SerialI2cScanner();
     nextScanPrint = millis();
   }
@@ -586,9 +618,9 @@ void loop1()
 
   auto timeout_micros = joystick_client.PollJoystickState(state, cfg);
   if (timeout_micros) {
-    X52DebugPrintln("PollJoystickState failed");
-    delayMicroseconds(timeout_micros);
-    return;
+    //X52DebugPrintln("PollJoystickState failed");
+    //delayMicroseconds(timeout_micros);
+    //return;
   }
   bool empty = false;
 
@@ -665,44 +697,88 @@ switch (state.mode) {
   //jr[0].rz = getAxisI2cSlave(0x21, 4);
   //jr[0].dial = getAxisI2cSlave(0x21, 5);
 
-  
-  bitWrite(buttons, 0, state.trigger_stage_1);
-  bitWrite(buttons, 1, state.button_fire);
-  bitWrite(buttons, 2, state.button_a);
-  bitWrite(buttons, 3, state.button_b);
-  bitWrite(buttons, 4, state.button_c);
-  bitWrite(buttons, 5, state.pinkie_switch);
-  bitWrite(buttons, 6, getButtonI2cSlave(0x21, Button1));
-  bitWrite(buttons, 7, getButtonI2cSlave(0x21, Button3));
-  bitWrite(buttons, 8, state.button_t1);
-  bitWrite(buttons, 9, state.button_t2);
-  bitWrite(buttons, 10, state.button_t3);
-  bitWrite(buttons, 11, state.button_t4);
-  bitWrite(buttons, 12, state.button_t5);
-  bitWrite(buttons, 13, state.button_t6);
-  bitWrite(buttons, 14, state.trigger_stage_2);
-  bitWrite(buttons, 15, getButtonI2cSlave(0x21, Button10));
-  bitWrite(buttons, 16, empty);
-  bitWrite(buttons, 17, empty);
-  bitWrite(buttons, 18, getButtonI2cSlave(0x21, Button11));
-  bitWrite(buttons, 19, p2u);
-  bitWrite(buttons, 20, p2r);
-  bitWrite(buttons, 21, p2d);
-  bitWrite(buttons, 22, p2l);
-  bitWrite(buttons, 23, getButtonI2cSlave(0x21, Button7));
-  bitWrite(buttons, 24, getButtonI2cSlave(0x21, Button6));
-  bitWrite(buttons, 25, getButtonI2cSlave(0x21, Button5));
-  bitWrite(buttons, 26, getButtonI2cSlave(0x21, Button4));
-  bitWrite(buttons, 27, M1);
-  bitWrite(buttons, 28, M2);
-  bitWrite(buttons, 29, M3);
-  bitWrite(buttons, 30, getButtonI2cSlave(0x21, Button2));
-  bitWrite(buttons, 31, empty);
-  //if( rp2040.fifo.push_nb(buttons))
+  if (readyToSend[0]) {
+    bitWrite(jr[0].buttons, 0, state.trigger_stage_1);
+    bitWrite(jr[0].buttons, 1, state.button_fire);
+    bitWrite(jr[0].buttons, 2, state.button_a);
+    bitWrite(jr[0].buttons, 3, state.button_b);
+    bitWrite(jr[0].buttons, 4, state.button_c);
+    bitWrite(jr[0].buttons, 5, state.pinkie_switch);
+    bitWrite(jr[0].buttons, 6, getButtonI2cSlave(0x21, Button1));
+    bitWrite(jr[0].buttons, 7, getButtonI2cSlave(0x21, Button3));
+    bitWrite(jr[0].buttons, 8, state.button_t1);
+    bitWrite(jr[0].buttons, 9, state.button_t2);
+    bitWrite(jr[0].buttons, 10, state.button_t3);
+    bitWrite(jr[0].buttons, 11, state.button_t4);
+    bitWrite(jr[0].buttons, 12, state.button_t5);
+    bitWrite(jr[0].buttons, 13, state.button_t6);
+    bitWrite(jr[0].buttons, 14, state.trigger_stage_2);
+    bitWrite(jr[0].buttons, 15, getButtonI2cSlave(0x21, Button10));
+    bitWrite(jr[0].buttons, 16, empty); // scroll up
+    bitWrite(jr[0].buttons, 17, empty); //scroll down
+    bitWrite(jr[0].buttons, 18, getButtonI2cSlave(0x21, Button11));
+    bitWrite(jr[0].buttons, 19, p2u);
+    bitWrite(jr[0].buttons, 20, p2r);
+    bitWrite(jr[0].buttons, 21, p2d);
+    bitWrite(jr[0].buttons, 22, p2l);
+    bitWrite(jr[0].buttons, 23, getButtonI2cSlave(0x21, Button7));
+    bitWrite(jr[0].buttons, 24, getButtonI2cSlave(0x21, Button6));
+    bitWrite(jr[0].buttons, 25, getButtonI2cSlave(0x21, Button5));
+    bitWrite(jr[0].buttons, 26, getButtonI2cSlave(0x21, Button4));
+    bitWrite(jr[0].buttons, 27, M1);
+    bitWrite(jr[0].buttons, 28, M2);
+    bitWrite(jr[0].buttons, 29, M3);
+    bitWrite(jr[0].buttons, 30, getButtonI2cSlave(0x21, Button2));
+
+  // 15/14 scroll mfd
+  // 13 mfd select
+  // 12 reset
+  // 11 start/stop
+  // 10 function
+  // 9/8 pg scroll
+
+
+    bitWrite(jr[0].buttons, 31, !digitalRead(10)); //function
+    bitWrite(jr[0].buttons, 32, !digitalRead(11)); // start/stop
+    bitWrite(jr[0].buttons, 33, !digitalRead(12)); //reset
+    bitWrite(jr[0].buttons, 34, !bitRead(jr[0].buttons,34)); //reset
+
+    // if (!digitalRead(9)&& digitalRead(8)) { // pg up
+    //   bitWrite(buttons, 34, 1);
+    //   bitWrite(buttons, 35, 0);
+    // } else if (!digitalRead(9)&& !digitalRead(8)) { //pg down
+    //   bitWrite(buttons, 34, 0);
+    //   bitWrite(buttons, 35, 1);
+    // } else {
+    //   bitWrite(buttons, 34, 0);
+    //   bitWrite(buttons, 35, 1);
+    // }
+
+
+  //  if (!digitalRead(15)) {
+  //    if (digitalRead(14)) {
+  //      digitalWrite(LED_BUILTIN,1);
+  //    } else {
+  //      digitalWrite(LED_BUILTIN,0);
+  //    }
+  //  }
+    // if (!digitalRead(15)&& digitalRead(14)) { // pg up
+    //   bitWrite(buttons, 35, 1);
+    //   bitWrite(buttons, 36, 0);
+    // } else if (!digitalRead(15)&& !digitalRead(14)) { //pg down
+    //   bitWrite(buttons, 35, 0);
+    //   bitWrite(buttons, 36, 1);
+    // } else {
+    //   bitWrite(buttons, 35, 0);
+    //   bitWrite(buttons, 36, 0);
+    // }
+    bitWrite(jr[0].buttons, 37, !digitalRead(13)); // mfd select
+    readyToSend[0] = false;  
+  };
+  //if (!digitalRead(10)||!digitalRead(11)||!digitalRead(12)||!digitalRead(13)) {digitalWrite(LED_BUILTIN,1);}else {digitalWrite(LED_BUILTIN,0);}  //if( rp2040.fifo.push_nb(buttons))
   //{
   //}  
-  jr[0].buttons = buttons;
-  readyToSend[0] = true;  
+  //jr[0].buttons = buttons;
   
 #if MAX_UPDATES_PER_SECOND
   }

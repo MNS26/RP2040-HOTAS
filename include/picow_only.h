@@ -31,9 +31,10 @@
 
 const char* ssid = STASSID;
 const char* password = STAPSK;
-const char* host = "fsbrowser";
+const char* host = "RP2040 hotas";
 
 WebServer server(80);
+ServerSessions serverCache(5);
 
 String unsupportedFiles = String();
 
@@ -61,6 +62,11 @@ void replyNotFound(String msg) {
   server.send(404, FPSTR(TEXT_PLAIN), msg);
 }
 
+void replyServerForbidden(String msg) {
+  DBG_OUTPUT_PORT.println(msg);
+  server.send(403, FPSTR(TEXT_PLAIN), msg + "\r\n");
+}
+
 void replyBadRequest(String msg) {
   DBG_OUTPUT_PORT.println(msg);
   server.send(400, FPSTR(TEXT_PLAIN), msg + "\r\n");
@@ -70,6 +76,7 @@ void replyServerError(String msg) {
   DBG_OUTPUT_PORT.println(msg);
   server.send(500, FPSTR(TEXT_PLAIN), msg + "\r\n");
 }
+
 
 #ifdef USE_SPIFFS
 /*
@@ -572,48 +579,134 @@ void i2cResult() {
 }
 
 void updateHid() {
-  
+  if (server.hasArg("usagepage")) {
+    String a = server.arg("usagepage");
+    if (a.length()) {
+      if (a.toInt()>0) {
+        hid_usage_page_val = a.toInt();
+      } else {
+        hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
+      }
+    } else {
+      server.send(200,"text/plain",(String)hid_usage_page_val);
+    }
+  }
+
+  if (server.hasArg("usage")) {
+    String a = server.arg("usage");
+    if (a.length()) {
+      if (a.toInt()>0) {
+        hid_usage_val = a.toInt();
+      } else {
+        hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
+      }
+    } else {
+      server.send(200,"text/plain",(String)hid_usage_val);
+    }
+  }
+
   if (server.hasArg("axis")) {
-    String axis = server.arg("axis");
-    AxisCount = (axis.toInt())?((axis.toInt()>0)?axis.toInt():0):0;
-    server.send(200);
+    String a = server.arg("axis");
+    if (a.length()) {
+      if (a.toInt()>0) {
+        AxisCount = a.toInt();
+      } else {
+        AxisCount = 0;
+      }
+    } else {
+      server.send(200,"text/plain",(String)AxisCount);
+    }
   }  
 
   if (server.hasArg("buttons")) {
-    String buttons = server.arg("buttons");
-    ButtonCount = (buttons.toInt())?((buttons.toInt()>0)?buttons.toInt():0):0;
-    server.send(200);
+    String a = server.arg("buttons");
+    if (a.length()) {
+      if (a.toInt()>0) {
+        ButtonCount = a.toInt();
+      } else {
+        ButtonCount = 0;
+      }
+    } else {
+      server.send(200,"text/plain",(String)ButtonCount);
+    }
   }
 
   if (server.hasArg("hats")) {
-    String hats = server.arg("hats");
-    HatCount = (hats.toInt())?((hats.toInt()>0)?hats.toInt():0):0;
-    server.send(200);
+    String a = server.arg("hats");
+    if (a.length()) {
+      if (a.toInt()>0) {
+        HatCount = a.toInt();
+      } else {
+        HatCount = 0;
+      }
+    } else {
+      server.send(200,"text/plain",(String)HatCount);
+    }
   }
 
-  if (server.hasArg("getValues")) {
-    String jsonString;
-    jsonString = "[";
-    jsonString += AxisCount;
-    jsonString += ",";
-    jsonString += ButtonCount;
-    jsonString += ",";
-    jsonString += HatCount;
-    jsonString += "]";
-    server.send(200, "application/json", jsonString);
-  }
   if (server.hasArg("restart")) {
-    Serial.print("axis: ");
-    Serial.println(AxisCount);
-    Serial.print("buttons: ");
-    Serial.println(ButtonCount);
-    Serial.print("hats: ");
-    Serial.println(HatCount);
-    Serial.println("restart USB");
-    delay(100);
     setupUSB();
     server.send(200);
   }
+}
+
+
+// Check if header is present and correct
+bool is_authenticated() {
+  Serial.println("Enter is_authenticated");
+  if (server.hasHeader("Cookie")) {
+    Serial.print("Found cookie: ");
+    String cookie = server.header("Cookie");
+    Serial.println(cookie);
+    if (cookie.indexOf("PICOSESSIONID=1") != -1) {
+      Serial.println("Authentication Successful");
+      return true;
+    }
+  }
+  Serial.println("Authentication Failed");
+  return false;
+}
+
+//void handleEdit();
+// login page, also called for disconnect
+void handleEditorLogin() {
+  String msg;
+  if (server.hasHeader("Cookie")) {
+    Serial.print("Found cookie: ");
+    String cookie = server.header("Cookie");
+    Serial.println(cookie);
+  }
+  
+   if (server.hasArg("DISCONNECT")) {
+     Serial.println("Disconnection");
+     server.sendHeader("Location", "/editor");
+     server.sendHeader("Cache-Control", "no-cache");
+     //server.sendHeader("Set-Cookie", "PICOSESSIONID=0");
+     server.send(301);
+     return;
+   }
+   if (server.hasArg("USERNAME") && server.hasArg("PASSWORD")) {
+    if (server.arg("USERNAME") == "admin" && server.arg("PASSWORD") == "admin") {
+
+      server.sendHeader("Location", "/editor");
+      server.sendHeader("Cache-Control", "no-cache");
+      //server.sendHeader("Set-Cookie", "PICOSESSIONID=1");
+      //server.send(301);
+      handleGetEdit();
+
+      Serial.println("Log in Successful");
+      return;
+    }
+    msg = "Wrong username/password! try again.";
+    Serial.println("Log in Failed");
+  }
+  //String content = "<html><body><form action='/login' method='POST'>To log in, please use : admin/admin<br>";
+  String content = "<html><body><form action='/editor' method='POST'>Login to use the editor<br>";
+  content += "User:    <input type='text' name='USERNAME' placeholder='user name'><br>";
+  content += "Password:<input type='password' name='PASSWORD' placeholder='password'><br>";
+  content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + msg + "<br>";
+  content += "</body></html>";
+  server.send(200, "text/html", content);
 }
 
 void setupWifi() {
@@ -629,9 +722,9 @@ void setupWifi() {
   // MDNS INIT
   if (MDNS.begin(host)) {
     MDNS.addService("http", "tcp", 80);
-    DBG_OUTPUT_PORT.print(F("Open http://"));
-    DBG_OUTPUT_PORT.print(host);
-    DBG_OUTPUT_PORT.println(F(".local/edit to open the FileSystem Browser"));
+    //DBG_OUTPUT_PORT.print(F("Open http://"));
+    //DBG_OUTPUT_PORT.print(host);
+    //DBG_OUTPUT_PORT.println(F(".local/edit to open the FileSystem Browser"));
   }
 
   ////////////////////////////////
@@ -658,12 +751,15 @@ void setupWifi() {
   server.on("/settings/updatehid",updateHid);
 
 
+
   // Filesystem status
   server.on("/status", HTTP_GET, handleStatus);
   // List directory
   server.on("/list", HTTP_GET, handleFileList);
+
   // Load editor
-  server.on("/edit", HTTP_GET, handleGetEdit);
+  server.on("/editor", handleEditorLogin);
+  //server.on("/edit", HTTP_GET, handleGetEdit);
   // Create file
   server.on("/edit", HTTP_PUT, handleFileCreate);
   // Delete file
@@ -674,13 +770,18 @@ void setupWifi() {
   // - second callback handles file upload at that location
   server.on("/edit", HTTP_POST, replyOK, handleFileUpload);
 
+  server.on("/edit/index.html", [](){server.send(403);});
+
+  server.on("/",[](){if(handleFileRead(F("/index.html"))) {return;}});
+
   // Default handler for all URIs not defined above
   // Use it to read files from filesystem
   server.onNotFound(handleNotFound);
 
+  server.collectHeaders("User-Agent", "Cookie");
 
-  
   // Start server
   server.begin();
+
   DBG_OUTPUT_PORT.println("HTTP server started");
 }

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="ajax-test.css">
+    <title>Document</title>
+  </head>
+  <body>
+    <main>
+      <div>
+        <h1>AJAX BASED PICOW WEBSERVER</h1>
+        <button class="button" onclick="set_led(1)">LED ON</button>
+        <button class="button" onclick="set_led(0)">LED OFF</button><BR>
+      </div>
+      <br>
+      <h2>
+        Uptime: <span id="uptime">0</span><br><br>
+        LED State: <span id="state">NA</span>
+      </h2>
+    </main>
+    <img src="/test.svg"/>
+    <script>
+      async function set_led(led_sts)
+      {
+        await fetch("led_set?state=" + led_sts);
+      }
+      async function get_led()
+      {
+        const res = await fetch("led_get");
+        document.getElementById("state").innerHTML = await res.text();     
+        setTimeout(get_led, 500);
+      }
+      async function get_Uptime()
+      {
+        const res = await fetch("uptime");
+        if (res >  document.getElementById("uptime").innerHTML)
+        {
+          document.getElementById("uptime").innerHTML = await res.text();
+        }
+        setTimeout(get_Uptime, 500);
+      }
+      setTimeout(get_Uptime, 500);
+      setTimeout(get_led, 500);
+    </script>
+  </body>
+</html>
