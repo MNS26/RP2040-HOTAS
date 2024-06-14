@@ -67,7 +67,8 @@
 		"stdlib_noniso.h": "c",
 		"stdbool.h": "c",
 		"arduino.h": "c",
-		"numbers": "cpp"
+		"hid_descriptor.h": "c",
+		"hid_minimal.h": "c"
 	},
 	"C_Cpp.dimInactiveRegions": true,
   "editor.insertSpaces": true,
