@@ -238,12 +238,25 @@ typedef struct {
   int usage[256];
   int next_usage;
   int usage_min;
+  int reportid;
 } hid_state;
 
 hid_state stack[16];
 uint8_t sp = 0;
 uint8_t bits = 0;
 
+
+typedef struct {
+  int offset;
+  int bits;
+  uint32_t usage_page;
+  uint32_t usage;
+} output;
+
+#define MAX_REPORT_ID 2
+#define MAX_OUTPUTS 256
+output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
+unsigned int output_index = 0;
 
 void addbyte(uint8_t **p, uint8_t byte) {
   *((*p)++) = byte;
@@ -269,6 +282,8 @@ void hid_usage(uint8_t **p, uint8_t usage) {
 void hid_report_id(uint8_t **p, uint8_t id) {
   addbyte(p, 0x85);
   addbyte(p, id);
+  stack[sp].reportid = id;
+  assert(id < MAX_REPORT_ID);
 }
 
 void hid_collection(uint8_t **p, uint8_t collection) {
@@ -340,11 +355,23 @@ void hid_input(uint8_t **p, uint8_t input) {
   addbyte(p, 0x81);
   addbyte(p, input);
 
-  //Serial.print("INPUT with %d * %d bits\n", stack[sp].report_count, stack[sp].report_size);
-  Serial.println("INPUT with " + String(stack[sp].report_count) + " * " + String(stack[sp].report_size) + " bits");
+  //printf("INPUT with %d * %d bits\n", stack[sp].report_count, stack[sp].report_size);
   for (int i=stack[sp].next_usage - stack[sp].report_count; i<stack[sp].next_usage; i++) {
-    Serial.println("usage#"+ String(i) + " == 0x" + String(stack[sp].usage_page, HEX) + " bits " + String(stack[sp].usage[i]) + " " + String(bits) + " " + String(stack[sp].report_size));
-    bits += stack[sp].report_size;    
+    int usage;
+    if (i >= 0) usage = stack[sp].usage[i];
+    else usage = 0;
+    //printf("usage#%d == 0x%x%04x bits %d + %d\n", i, stack[sp].usage_page, usage, bits, stack[sp].report_size);
+
+    assert(output_index < MAX_OUTPUTS);
+
+    output *o = &outputs[stack[sp].reportid][output_index];
+    o->offset = bits;
+    o->bits = stack[sp].report_size;
+    o->usage_page = stack[sp].usage_page;
+    o->usage = usage;
+
+    output_index++;
+    bits += stack[sp].report_size;
   }
   stack[sp].next_usage = 0;
 }

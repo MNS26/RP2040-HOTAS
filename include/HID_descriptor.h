@@ -1,23 +1,27 @@
-#include <Arduino.h>
+#include "hid.h"
 
-uint8_t *makeDescriptor(uint8_t bitsPerAxis, uint8_t axisCount,uint8_t hatCount, uint8_t buttonCount, uint *bufferSize) {
+uint8_t *makeDescriptor(uint8_t bitsPerAxis, uint8_t axisCount,uint8_t hatCount, uint8_t buttonCount, unsigned int *bufferSize) {
   uint8_t *buffer = (uint8_t*)malloc(MAX_HID_DESCRIPTOR_SIZE);
   uint8_t *p = buffer;
+
+  bits = 0;
+  sp = 0;
 
   hid_usage_page(&p, HID_USAGE_PAGE_DESKTOP );
   hid_usage(&p, HID_USAGE_DESKTOP_JOYSTICK );
   hid_collection(&p, HID_COLLECTION_APPLICATION );
+    output_index = 0;
     hid_report_id(&p, 1);
     hid_usage_page(&p, HID_USAGE_PAGE_DESKTOP );
     hid_usage(&p ,HID_USAGE_DESKTOP_POINTER );
     hid_collection(&p, HID_COLLECTION_PHYSICAL );
+      hid_report_count(&p, 1);
+      hid_logical_min(&p, 0);
+      hid_physical_min(&p, -32768);
+      hid_physical_max(&p, 32767);
       for (uint8_t i = 0; i < axisCount; i++) {
         hid_usage(&p, HID_USAGE_DESKTOP_X+i);
-        hid_logical_min(&p, 0);
         hid_logical_max(&p, (1<<bitsPerAxis)-1);
-        hid_physical_min(&p, -32768);
-        hid_physical_max(&p, 32767);
-        hid_report_count(&p, 1);
         hid_report_size(&p, bitsPerAxis);
         hid_input(&p, HID_DATA|HID_VARIABLE|HID_ABSOLUTE|HID_WRAP_NO|HID_LINEAR|HID_PREFERRED_STATE|HID_NO_NULL_POSITION);
         if ((8 - (bitsPerAxis % 8)) % 8) {
