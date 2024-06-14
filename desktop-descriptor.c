@@ -1,14 +1,13 @@
 #include <stdint.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #define MAX_HID_DESCRIPTOR_SIZE 1024
 
-#include "hid_minimal.h"
-#include "include/HID_descriptor.h"
-
 #define TU_ATTR_PACKED __attribute__((packed))
 #define TU_BIT(n) (1<<n)
+
+#include "hid_minimal.h"
+#include "include/HID_descriptor.h"
 
 int main(int argc, char **argv) {
   unsigned int size;

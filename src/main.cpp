@@ -683,8 +683,8 @@ switch (state.mode) {
     case 0b1001:  jr[0].hat2 = 0b0010; break;
     default: jr[0].hat2 = 0b0000; break;
   }
-  jr[0].x = map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 50), 0, 1023, 0, 2047);
-  jr[0].y = map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 50), 0, 1023, 0, 2047);
+  jr[0].x = map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 0), 0, 1023, 0, 2047);
+  jr[0].y = map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 0), 0, 1023, 0, 2047);
   jr[0].z = map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, 2047);  //yaw
   jr[0].rx = map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0);
 

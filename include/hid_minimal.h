@@ -1,4 +1,6 @@
 #pragma once
+#include "assert.h"
+
 enum {
   HID_USAGE_PAGE_UNDEFINED       = 0x00,
   HID_USAGE_PAGE_DESKTOP         = 0x01,
