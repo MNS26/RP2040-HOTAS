@@ -30,6 +30,8 @@
 
 #ifndef _TUSB_HID_H_
 #define _TUSB_HID_H_
+
+//#include "tusb_common.h"
 //#include "tusb_common_modified.h"
 
 #ifdef __cplusplus

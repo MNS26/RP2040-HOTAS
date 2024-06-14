@@ -8,6 +8,7 @@
 #include "Commands.h"
 #include "Common.h"
 #include "hid_minimal.h"
+#include "common/tusb_common.h"
 #include "hid.h"
 #include "HID_descriptor.h"
 #include "HID_Report.h"
