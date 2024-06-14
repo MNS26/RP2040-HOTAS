@@ -30,12 +30,14 @@
 
 #ifndef _TUSB_HID_H_
 #define _TUSB_HID_H_
-#include "common/tusb_common.h"
 //#include "tusb_common_modified.h"
 
 #ifdef __cplusplus
  extern "C" {
 #endif
+
+#define TU_ATTR_PACKED __attribute__((packed))
+#define TU_BIT(n) (1<<n)
 
 //--------------------------------------------------------------------+
 // Common Definitions
