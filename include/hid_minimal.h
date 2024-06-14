@@ -1,5 +1,5 @@
 #pragma once
-#include "assert.h"
+#include <assert.h>
 
 enum {
   HID_USAGE_PAGE_UNDEFINED       = 0x00,
@@ -258,6 +258,7 @@ typedef struct {
 #define MAX_REPORT_ID 2
 #define MAX_OUTPUTS 256
 output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
+unsigned int output_count[MAX_REPORT_ID];
 unsigned int output_index = 0;
 
 void addbyte(uint8_t **p, uint8_t byte) {
@@ -373,6 +374,7 @@ void hid_input(uint8_t **p, uint8_t input) {
     o->usage = usage;
 
     output_index++;
+    output_count[stack[sp].reportid] = output_index;
     bits += stack[sp].report_size;
   }
   stack[sp].next_usage = 0;

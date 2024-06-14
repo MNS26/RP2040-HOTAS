@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
   uint8_t *hid_descriptor = makeDescriptor(8, 8, 2, 8, &size);
 
   for (int r = 1; r<MAX_REPORT_ID; r++) {
-    for (int i=0; i<output_index; i++) {
+    for (int i=0; i<output_count[r]; i++) {
       printf("output %d page 0x%x usage 0x%x starts at bit %d and is %d bits long\n", i, outputs[r][i].usage_page, outputs[r][i].usage, outputs[r][i].offset, outputs[r][i].bits);
     }
   }
