@@ -94,6 +94,10 @@ extern FS* fileSystem;
 #endif
 
 
+#undef bitSet
+#undef bitClear
+#define bitSet(value, bit) ((value) |= (1ULL << (bit)))
+#define bitClear(value, bit) ((value) &= ~(1ULL << (bit)))
 
 
 template <typename T>
@@ -170,7 +174,7 @@ uint32_t getLedI2cSlave (int slaveID, int LedID) {
   Wire.write(LedID);
   Wire.endTransmission();
   Wire.requestFrom(slaveID, sizeof(uint32_t));
-  uint32_t buf;
+  uint32_t buf = 0;
   for (int i = 0; Wire.available()>0; i++) {
     ((uint8_t*)buf)[i] = Wire.read();
   }

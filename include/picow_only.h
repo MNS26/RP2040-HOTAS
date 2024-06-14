@@ -470,17 +470,17 @@ void handleNotFound() {
   message += (server.method() == HTTP_GET) ? "GET" : "POST";
   message += F("\r\nArguments: ");
   message += server.args();
-  message += '\r\n';
+  message += "\r\n";
   for (uint8_t i = 0; i < server.args(); i++) {
     message += F(" NAME:");
     message += server.argName(i);
     message += F("\r\n VALUE:");
     message += server.arg(i);
-    message += '\r\n';
+    message += "\r\n";
   }
   message += "path=";
   message += server.arg("path");
-  message += '\r\n';
+  message += "\r\n";
   DBG_OUTPUT_PORT.print(message);
 
   return replyNotFound(message);
