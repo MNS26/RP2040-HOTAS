@@ -564,10 +564,16 @@ void drawGraph() {
   server.send(200, "image/svg+xml", out);
 }
 
+void settings() {
+    if (handleFileRead(F("/settings/index.html"))) {
+    return;
+  }
+}
+
 void i2cResult() {
   String jsonString;
   jsonString = "[";
-  for (int i =0; i <sizeof(i2cIDs); i++) {
+  for (uint8_t i =0; i <sizeof(i2cIDs); i++) {
     if (i2cIDs[i] == 1)
     jsonString +=  (String)(i)+",";
   }
@@ -749,8 +755,6 @@ void setupWifi() {
   server.on("/settings",NULL);
 
   server.on("/settings/updatehid",updateHid);
-
-
 
   // Filesystem status
   server.on("/status", HTTP_GET, handleStatus);

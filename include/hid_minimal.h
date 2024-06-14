@@ -31,6 +31,66 @@ enum {
   //0xFF - 0xFFFF n/a
 };
 
+
+/// HID Usage Table - Table 5: Simulation Controls Page
+enum {
+  HID_CONTROL_PAGE_UNDEFINED                      = 0x00,
+  HID_CONTROL_PAGE_FLIGHT_SIMULATION              = 0x01,
+  HID_CONTROL_PAGE_AUTOMOBILE_SIMULATION          = 0x02,
+  HID_CONTROL_PAGE_TANK_SIMULATION                = 0x03,
+  HID_CONTROL_PAGE_SPACESHIP_SIMULATION           = 0x04,
+  HID_CONTROL_PAGE_SUBMARINE_SIMULATION           = 0x05,
+  HID_CONTROL_PAGE_SAILING_SIMULATION             = 0x06,
+  HID_CONTROL_PAGE_MOTORCYCLE_SIMULATION          = 0x07,
+  HID_CONTROL_PAGE_SPORTS_SIMULATION              = 0x08,
+  HID_CONTROL_PAGE_AIRPLANE_SIMULATION            = 0x09,
+  HID_CONTROL_PAGE_MAGIC_CARPET_SIMULATION        = 0x0A,
+  HID_CONTROL_PAGE_HELICOPTER_SIMULATION          = 0x0B,
+  HID_CONTROL_PAGE_BICYCLE_SIMULATION             = 0x0C,
+  // RESERVED 0D - 1F
+  HID_CONTROL_PAGE_FLIGHT_CONTROL_STICK            = 0x20,
+  HID_CONTROL_PAGE_FLIGHT_STICK                    = 0x21,
+  HID_CONTROL_PAGE_CYCLIC_CONTROL                  = 0x22,
+  HID_CONTROL_PAGE_CYCLIC_TRIM                     = 0x23,
+  HID_CONTROL_PAGE_FLIGHT_YOKE                     = 0x24,
+  HID_CONTROL_PAGE_TRACK_CONTROL                   = 0x25,
+  // RESERVED 26 - AF
+  HID_CONTROL_PAGE_AILERON                         = 0xB0,
+  HID_CONTROL_PAGE_AILERON_TRIM                    = 0xB1,
+  HID_CONTROL_PAGE_ANTI_TORQUE_CONTROL             = 0xB2,
+  HID_CONTROL_PAGE_AUTOPILOT_ENABLE                = 0xB3,
+  HID_CONTROL_PAGE_CHAFF_RELEASE                   = 0xB4,
+  HID_CONTROL_PAGE_COLLECTIVE_CONTROL              = 0xB5,
+  HID_CONTROL_PAGE_DRIVE_BRAKE                     = 0xB6,
+  HID_CONTROL_PAGE_ELECTRIC_COUNTERMEASURES        = 0xB7,
+  HID_CONTROL_PAGE_ELEVATOR                        = 0xB8,
+  HID_CONTROL_PAGE_ELEVATOR_TRIM                   = 0xB9,
+  HID_CONTROL_PAGE_RUDDER                          = 0xBA,
+  HID_CONTROL_PAGE_THROTTLE                        = 0xBB,
+  HID_CONTROL_PAGE_FLIGHT_COMMUNICATIONS           = 0xBC,
+  HID_CONTROL_PAGE_FLARE_RELEASE                   = 0xBD,
+  HID_CONTROL_PAGE_LANDING_GEAR                    = 0xBE,
+  HID_CONTROL_PAGE_TOE_BRAKE                       = 0xBF,
+  HID_CONTROL_PAGE_TRIGGER                         = 0xC0,
+  HID_CONTROL_PAGE_WEAPONS_ARM                     = 0xC1,
+  HID_CONTROL_PAGE_WEAPONS_SELECT                  = 0xC2,
+  HID_CONTROL_PAGE_WING_FLAPS                      = 0xC3,
+  HID_CONTROL_PAGE_ACCELERATOR                     = 0xC4,
+  HID_CONTROL_PAGE_BRAKE                           = 0xC5,
+  HID_CONTROL_PAGE_CLUTCH                          = 0xC6,
+  HID_CONTROL_PAGE_SHIFTER                         = 0xC7,
+  HID_CONTROL_PAGE_STEERING                        = 0xC8,
+  HID_CONTROL_PAGE_TURRET_DIRECTION                = 0xC9,
+  HID_CONTROL_PAGE_BARREL_ELEVATION                = 0xCA,
+  HID_CONTROL_PAGE_DIVE_PLANE                      = 0xCB,
+  HID_CONTROL_PAGE_BALLAST                         = 0xCC,
+  HID_CONTROL_PAGE_BICYCLE_CRANK                   = 0xCD,
+  HID_CONTROL_PAGE_HANDLE_BARS                     = 0xCE,
+  HID_CONTROL_PAGE_FRONT_BRAKE                     = 0xCF,
+  HID_CONTROL_PAGE_REAR_BRAKE                      = 0xD0,
+  // RESERVED D1 - FFFF
+};
+
 enum {
   HID_COLLECTION_PHYSICAL = 0,
   HID_COLLECTION_APPLICATION,
@@ -126,22 +186,22 @@ enum {
   HID_USAGE_DESKTOP_TABLET_PC_SYSTEM      = 0x09,
 };
 
-#define HID_USAGE_PAGE(x)    0x5, x
-#define HID_USAGE(x)         0x9, x
-#define HID_COLLECTION(x)    0xa1, x
-#define HID_COLLECTION_END   0xc0
-#define HID_REPORT_COUNT(x)  0x95, x
-#define HID_REPORT_SIZE(x)   0x75, x
-#define HID_LOGICAL_MIN(x)   0x15, x
-#define HID_LOGICAL_MAX(x)   0x26, (x & 0xff), (x >> 8)
-#define HID_PHYSICAL_MIN(x)  0x35, x
-#define HID_PHYSICAL_MAX(x)  0x46, (x & 0xff), (x >> 8)
-#define HID_INPUT(x)         0x81, x
-#define HID_PUSH             0xa4
-#define HID_POP              0xb4
-#define HID_USAGE_MIN(x)     0x19, x
-#define HID_USAGE_MAX(x)     0x29, x
-#define HID_REPORT_ID(x)     0x85, x
+//#define HID_USAGE_PAGE(x)    0x5, x
+//#define HID_USAGE(x)         0x9, x
+//#define HID_COLLECTION(x)    0xa1, x
+//#define HID_COLLECTION_END   0xc0
+//#define HID_REPORT_COUNT(x)  0x95, x
+//#define HID_REPORT_SIZE(x)   0x75, x
+//#define HID_LOGICAL_MIN(x)   0x15, x
+//#define HID_LOGICAL_MAX(x)   0x26, (x & 0xff), (x >> 8)
+//#define HID_PHYSICAL_MIN(x)  0x35, x
+//#define HID_PHYSICAL_MAX(x)  0x46, (x & 0xff), (x >> 8)
+//#define HID_INPUT(x)         0x81, x
+//#define HID_PUSH             0xa4
+//#define HID_POP              0xb4
+//#define HID_USAGE_MIN(x)     0x19, x
+//#define HID_USAGE_MAX(x)     0x29, x
+//#define HID_REPORT_ID(x)     0x85, x
 
 #define HID_DATA             (0<<0)
 #define HID_CONSTANT         (1<<0) //1
@@ -184,6 +244,7 @@ hid_state stack[16];
 uint8_t sp = 0;
 uint8_t bits = 0;
 
+
 void addbyte(uint8_t **p, uint8_t byte) {
   *((*p)++) = byte;
 }
@@ -205,6 +266,11 @@ void hid_usage(uint8_t **p, uint8_t usage) {
   stack[sp].usage[stack[sp].next_usage++] = usage;
 }
 
+void hid_report_id(uint8_t **p, uint8_t id) {
+  addbyte(p, 0x85);
+  addbyte(p, id);
+}
+
 void hid_collection(uint8_t **p, uint8_t collection) {
   addbyte(p, 0xa1);
   addbyte(p, collection);
@@ -217,6 +283,7 @@ void hid_collection_end(uint8_t **p) {
 int get_bytes(uint16_t d) {
   if ((d >= 0) && (d <= UINT8_MAX)) return 1;
   else if ((d >= 0) && (d <= UINT16_MAX)) return 2;
+  else return 3;
 }
 
 void add_variable(uint8_t **p, uint16_t d, int bytes) {
@@ -269,3 +336,37 @@ void hid_physical_max(uint8_t **p, uint16_t max) {
   add_variable(p, max, bytes);
 }
 
+void hid_input(uint8_t **p, uint8_t input) {
+  addbyte(p, 0x81);
+  addbyte(p, input);
+
+  //Serial.print("INPUT with %d * %d bits\n", stack[sp].report_count, stack[sp].report_size);
+  Serial.println("INPUT with " + String(stack[sp].report_count) + " * " + String(stack[sp].report_size) + " bits");
+  for (int i=stack[sp].next_usage - stack[sp].report_count; i<stack[sp].next_usage; i++) {
+    Serial.println("usage#"+ String(i) + " == 0x" + String(stack[sp].usage_page, HEX) + " bits " + String(stack[sp].usage[i]) + " " + String(bits) + " " + String(stack[sp].report_size));
+    bits += stack[sp].report_size;    
+  }
+  stack[sp].next_usage = 0;
+}
+
+void hid_push(uint8_t **p) {
+  addbyte(p, 0xa4);
+}
+
+void hid_pop(uint8_t **p) {
+  addbyte(p, 0xb4);
+}
+
+void hid_usage_min(uint8_t **p, uint8_t min) {
+  addbyte(p, 0x19);
+  addbyte(p, min);
+  stack[sp].usage_min = min;
+}
+
+void hid_usage_max(uint8_t **p, uint8_t max) {
+  addbyte(p, 0x29);
+  addbyte(p, max);
+  for (int n=stack[sp].usage_min; n<= max; n++) {
+    stack[sp].usage[stack[sp].next_usage++] = n;
+  }
+}

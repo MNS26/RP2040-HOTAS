@@ -7,7 +7,7 @@ patchflag_path = join(FRAMEWORK_DIR, "libraries", "SDFS", "src", ".patching-done
 
 
 # patch file only if we didn't do it before
-if not isfile(join(FRAMEWORK_DIR, ".patching-done")):
+if not isfile(join(FRAMEWORK_DIR, "libraries", "SDFS", "src", ".patching-done")):
     original_file = join(FRAMEWORK_DIR, "libraries", "SDFS", "src", "SDFS.h")
     patched_file = join("patches", "SDFS.patch")
 

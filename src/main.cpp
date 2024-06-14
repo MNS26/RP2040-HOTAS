@@ -1,10 +1,14 @@
 /*== JOYSTICK ==*/
 
+
+#define MAX_USB_PACKET_SIZE 64
+#define MAX_HID_DESCRIPTOR_SIZE 4096
+
 #include <Arduino.h>
 #include "Commands.h"
 #include "Common.h"
-#include "hid.h"
 #include "hid_minimal.h"
+#include "hid.h"
 #include "HID_descriptor.h"
 #include "HID_Report.h"
 #include <Adafruit_TinyUSB.h>
@@ -14,8 +18,6 @@
 #include "Wire.h"
 
 
-#define MAX_USB_PACKET_SIZE 64
-#define MAX_HID_REPORTDESC_SIZE 4096
 
 
 bool rebootUpdate = false;
@@ -95,13 +97,20 @@ extern FS* fileSystem;
 
 
 template <typename T>
-T map_clamped(T x, T in_min, T in_max, T out_min, T out_max)
-{
+T map_clamped(T x, T in_min, T in_max, T out_min, T out_max) {
   if (x < in_min) x = in_min;
   if (x > in_max) x = in_max;
   x = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
   //if (x > out_max) x = out_max;
   //if (x < out_min) x = out_min;
+  return x;
+}
+
+template <typename T>
+T deadzone(T x, T midpoint, uint8_t deadzoneSize) {
+  if (abs(x - midpoint) < deadzoneSize) {
+    return midpoint;
+  }
   return x;
 }
 
@@ -243,34 +252,22 @@ void setupUSB() {
   //uint16_t JsRepAlocSize = 12;
   //JsRepAlocSize += 2 + (AxisCount*((int)(std::ceil((float)(AxisResolution)/8) 
 
-  
-//  uint8_t const desc_hid_report[] = {
-//    0x5,0x1,0x9,0x4,0xa1,0x1,0xa1,0x2,0x85,0x1,0x75,0x8,0x15,0x0,0x26,0xff,0x0,0x35,0x0,0x46,0xff,0x0,0x9,0x30,0x9,0x31,0x9,0x32,0x95,0x3,0x81,0x2,0xa4,0x95,0x50,0x75,0x1,0x26,0x1,0x0,0x46,0x1,0x0,0x5,0x9,0x19,0x1,0x29,0x50,0x81,0x2,0xb4,0xc0,0xa1,0x2,0x85,0x2,0x75,0x8,0x95,0x1,0x15,0x0,0x26,0xff,0x0,0x35,0x0,0x46,0xff,0x0,0x9,0x30,0x81,0x2,0xc0,0xc0,//  TUD_HID_REPORT_DESC_GAMEPAD_(VA_HID_REPORT_ID(10)),
-//  };
-
-  uint8_t* hidJoystickReportDesc = NULL;
-  uint16_t hidJoystickReportDescSize = 0;
-
-  hidJoystickReportDesc = (uint8_t*)malloc(MAX_HID_REPORTDESC_SIZE);
-  memset(hidJoystickReportDesc, 0, MAX_HID_REPORTDESC_SIZE);
-  hidJoystickReportDescSize=0;
-
-
 //  memcpy(hidJoystickReportDesc+hidJoystickReportDescSize,desc_hid_report,sizeof(desc_hid_report));
 //  hidJoystickReportDescSize+=sizeof(desc_hid_report);
 //  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount, true);
-  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount);
+//  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount);
   
 
-
+  uint bufferSize;
+  uint8_t *buffer = makeDescriptor(AxisResolution, AxisCount, HatCount, ButtonCount, &bufferSize);
 
 
   if (jr == NULL)
     jr = new hid_Joystick_report_t[DeviceCount];
   if (jr_old == NULL)
     jr_old = new hid_Joystick_report_t[DeviceCount];
-  memset(jr, 0, sizeof(jr));
-  memset(jr_old, 0, sizeof(jr_old));
+  memset(jr, 0, (uint16_t)sizeof(jr));
+  memset(jr_old, 0, (uint16_t)sizeof(jr_old));
   readyToSend = (bool*)readyToSend[DeviceCount];
 
 
@@ -287,14 +284,16 @@ void setupUSB() {
   if (DeviceCount > 0) {
     hid_joystick.setPollInterval(2);
     hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
-    hid_joystick.setReportDescriptor(hidJoystickReportDesc, hidJoystickReportDescSize);
+    hid_joystick.setReportDescriptor(buffer, bufferSize);
     hid_joystick.setReportCallback(get_report_callback, set_report_callback);
     hid_joystick.begin();
   }
   if (enableMouseAndKeyboard) {
     // HID report descriptor using TinyUSB's template
   uint8_t desc_hid_report[] = {
-    TUD_HID_REPORT_DESC_KEYBOARD( VA_HID_REPORT_ID(1) ),
+    //keyboard
+    5,1,9,6,161,1,133,1,5,7,25,224,41,231,21,0,37,1,149,8,117,1,129,2,149,1,117,8,129,1,5,8,25,1,41,5,149,5,117,1,145,2,149,1,117,3,145,1,5,7,25,0,42,255,0,21,0,38,255,0,149,6,117,8,129,0,192,
+
     TUD_HID_REPORT_DESC_MOUSE   ( VA_HID_REPORT_ID(2) ),
   };
 
@@ -679,10 +678,10 @@ switch (state.mode) {
     case 0b1001:  jr[0].hat2 = 0b0010; break;
     default: jr[0].hat2 = 0b0000; break;
   }
-  jr[0].x = (jr[0].x + map_clamped<uint16_t>(state.x, 0, 1023, 0, 2047))/2;
-  jr[0].y = (jr[0].y + map_clamped<uint16_t>(state.y, 0, 1023, 0, 2047))/2;
-  jr[0].z = (jr[0].z + map_clamped<uint16_t>(state.z, 0, 1023, 0, 2047))/2;  
-  jr[0].rx = (jr[0].rx + map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0))/2;
+  jr[0].x = map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 50), 0, 1023, 0, 2047);
+  jr[0].y = map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 50), 0, 1023, 0, 2047);
+  jr[0].z = map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, 2047);  //yaw
+  jr[0].rx = map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0);
 
   // 1 = ??? (nub X?)
   // 2 = ??? (nub Y?)
