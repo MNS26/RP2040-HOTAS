@@ -264,7 +264,7 @@ void setupUSB() {
   
 
   uint bufferSize;
-  uint8_t *buffer = makeDescriptor(AxisResolution, AxisCount, HatCount, ButtonCount, &bufferSize);
+  uint8_t *buffer = makeDescriptor(1, AxisResolution, AxisCount, HatCount, ButtonCount, &bufferSize);
 
 
   if (jr == NULL)

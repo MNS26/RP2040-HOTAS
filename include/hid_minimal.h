@@ -255,7 +255,7 @@ typedef struct {
   uint32_t usage;
 } output;
 
-#define MAX_REPORT_ID 2
+#define MAX_REPORT_ID 4
 #define MAX_OUTPUTS 256
 output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
 unsigned int output_count[MAX_REPORT_ID];
@@ -286,7 +286,7 @@ void hid_report_id(uint8_t **p, uint8_t id) {
   addbyte(p, 0x85);
   addbyte(p, id);
   stack[sp].reportid = id;
-  assert(id < MAX_REPORT_ID);
+  assert(id < MAX_REPORT_ID+1);
 }
 
 void hid_collection(uint8_t **p, uint8_t collection) {
@@ -365,7 +365,7 @@ void hid_input(uint8_t **p, uint8_t input) {
     else usage = 0;
     //printf("usage#%d == 0x%x%04x bits %d + %d\n", i, stack[sp].usage_page, usage, bits, stack[sp].report_size);
 
-    assert(output_index < MAX_OUTPUTS);
+    assert(output_index < MAX_OUTPUTS+1);
 
     output *o = &outputs[stack[sp].reportid][output_index];
     o->offset = bits;

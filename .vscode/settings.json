@@ -68,7 +68,9 @@
 		"stdbool.h": "c",
 		"arduino.h": "c",
 		"hid_descriptor.h": "c",
-		"hid_minimal.h": "c"
+		"hid_minimal.h": "c",
+		"stdio.h": "c",
+		"hid.h": "c"
 	},
 	"C_Cpp.dimInactiveRegions": true,
   "editor.insertSpaces": true,
@@ -82,4 +84,11 @@
 	"C_Cpp.codeAnalysis.runAutomatically": true,
 	"C_Cpp.clang_format_style": "LLVM",
 	"debug.disassemblyView.showSourceCode": true,
+	"makefile.launchConfigurations": [
+		{
+			"cwd": "/home/noah/Documents/PlatformIO/Projects/RP2040 HOTAS",
+			"binaryPath": "/home/noah/Documents/PlatformIO/Projects/RP2040 HOTAS/descriptor_test",
+			"binaryArgs": []
+		}
+	]
 }
