@@ -247,7 +247,6 @@ hid_state stack[16];
 uint8_t sp = 0;
 uint8_t bits = 0;
 
-
 typedef struct {
   int offset;
   int bits;
@@ -255,11 +254,16 @@ typedef struct {
   uint32_t usage;
 } output;
 
-#define MAX_REPORT_ID 4
-#define MAX_OUTPUTS 256
+#define MAX_REPORT_ID 16
+#define MAX_OUTPUTS 515
 output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
 unsigned int output_count[MAX_REPORT_ID];
 unsigned int output_index = 0;
+
+void resetStack(){
+  sp=0;
+  bits=0;
+}
 
 void addbyte(uint8_t **p, uint8_t byte) {
   *((*p)++) = byte;

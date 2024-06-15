@@ -1,14 +1,9 @@
 #include "hid.h"
 
-
-
 uint8_t *makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uint8_t hatCount, uint8_t buttonCount, uint *bufferSize) {
   uint8_t *buffer = (uint8_t*)malloc(MAX_HID_DESCRIPTOR_SIZE);
   uint8_t *p = buffer;
-
-  bits = 0;
-  sp = 0;
-
+  
   hid_usage_page(&p, HID_USAGE_PAGE_DESKTOP );
   hid_usage(&p, HID_USAGE_DESKTOP_JOYSTICK );
   hid_collection(&p, HID_COLLECTION_APPLICATION );
@@ -74,5 +69,6 @@ uint8_t *makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount
   hid_collection_end(&p);
 
   *bufferSize = p - buffer;
+  //*bufferSize = p - *buffer;
   return buffer;
 }

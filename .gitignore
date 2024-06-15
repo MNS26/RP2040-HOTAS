@@ -43,3 +43,4 @@ __pycache__/
 *.py[cod]
 python/config.cfg
 WIFI_CR
+descriptor.bin
