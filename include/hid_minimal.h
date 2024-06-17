@@ -232,7 +232,6 @@ enum {
 #define HID_REPORT_ITEM_8    (data, tag, type) (((tag) << 4) | ((type) << 2) | (1)), ENCODE_1(data)
 #define HID_REPORT_ITEM_16   (data, tag, type) (((tag) << 4) | ((type) << 2) | (2)), ENCODE_2(data)
 #define HID_REPORT_ITEM_32   (data, tag, type) (((tag) << 4) | ((type) << 2) | (3)), ENCODE_3(data)
-
 typedef struct {
   int report_size;
   int report_count;
@@ -246,27 +245,28 @@ typedef struct {
 hid_state stack[16];
 uint8_t sp = 0;
 uint8_t bits = 0;
-
+void resetStack(){
+  sp=0;
+  bits=0;
+}
+#ifdef DESKTOP_ONLY
 typedef struct {
   int offset;
   int bits;
   uint32_t usage_page;
   uint32_t usage;
+  uint input_variable;
 } output;
 
 #define MAX_REPORT_ID 16
-#define MAX_OUTPUTS 515
+#define MAX_OUTPUTS 256
 output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
 unsigned int output_count[MAX_REPORT_ID];
 unsigned int output_index = 0;
+#endif
 
-void resetStack(){
-  sp=0;
-  bits=0;
-}
-
-void addbyte(uint8_t **p, uint8_t byte) {
-  *((*p)++) = byte;
+void addbyte(uint8_t **p, uint8_t _byte) {
+  *((*p)++) = _byte;
 }
 
 void addshort(uint8_t **p, uint16_t d) {
@@ -330,6 +330,7 @@ void hid_report_count(uint8_t **p, uint16_t count) {
   addbyte(p, 0x94 | bytes);
   add_variable(p, count, bytes);
   stack[sp].report_count = count;
+#
 }
 
 void hid_logical_min(uint8_t **p, uint8_t min) {
@@ -362,23 +363,24 @@ void hid_input(uint8_t **p, uint8_t input) {
   addbyte(p, 0x81);
   addbyte(p, input);
 
-  //printf("INPUT with %d * %d bits\n", stack[sp].report_count, stack[sp].report_size);
   for (int i=stack[sp].next_usage - stack[sp].report_count; i<stack[sp].next_usage; i++) {
+#ifdef DESKTOP_ONLY
     int usage;
     if (i >= 0) usage = stack[sp].usage[i];
     else usage = 0;
-    //printf("usage#%d == 0x%x%04x bits %d + %d\n", i, stack[sp].usage_page, usage, bits, stack[sp].report_size);
+
 
     assert(output_index < MAX_OUTPUTS+1);
-
     output *o = &outputs[stack[sp].reportid][output_index];
     o->offset = bits;
     o->bits = stack[sp].report_size;
     o->usage_page = stack[sp].usage_page;
     o->usage = usage;
+    o->input_variable = input;
 
     output_index++;
     output_count[stack[sp].reportid] = output_index;
+#endif
     bits += stack[sp].report_size;
   }
   stack[sp].next_usage = 0;

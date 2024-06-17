@@ -3,6 +3,8 @@
 
 #define MAX_USB_PACKET_SIZE 64
 #define MAX_HID_DESCRIPTOR_SIZE 4096
+#define MAX_REPORT_ID 30
+#define MAX_OUTPUTS 256
 
 #include <Arduino.h>
 #include "Commands.h"
@@ -44,13 +46,19 @@ int COLLECTIONS = MAX_COLLECTIONS;
 uint16_t hue;
 uint32_t nextScan = millis();
 uint32_t nextScanPrint = millis();
+uint16_t axis_start[MAX_REPORT_ID];
+uint16_t button_start[MAX_REPORT_ID];
+uint16_t hat_start[MAX_REPORT_ID];
+uint16_t total_bits[MAX_REPORT_ID];
 
 uint32_t AxisResolution = 11;
 uint8_t AxisCount = 8;
 uint8_t ButtonCount = 64;
 uint8_t HatCount = 2;
+
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
 uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
+
 hid_Joystick_report_t* jr = NULL;
 hid_Joystick_report_t* jr_old = NULL;
 size_t buffsize;
@@ -214,11 +222,6 @@ void progressCallBack(size_t currSize, size_t totalSize) {
 }
 
 
-typedef struct {
-  uint8_t x, y, z;
-  uint8_t buttons[10];
-} report_test;
-report_test test;
 void setupUSB() {
 
   // reset the connection
@@ -246,25 +249,10 @@ void setupUSB() {
     DeviceCount = DeviceCountHat;
   }
 
-
-
-
-  // Calculate size needed for joystick descriptor
-  // Header  : 6 + 2 + 4 = 12
-  // Axis    : 2 + (count \* 2) + (2 + (1 + type) +  (2 \* 3) + 2 + 2 + 2) + 6
-  // Buttons :
-  // Hats    :
-  //uint16_t JsRepAlocSize = 12;
-  //JsRepAlocSize += 2 + (AxisCount*((int)(std::ceil((float)(AxisResolution)/8) 
-
-//  memcpy(hidJoystickReportDesc+hidJoystickReportDescSize,desc_hid_report,sizeof(desc_hid_report));
-//  hidJoystickReportDescSize+=sizeof(desc_hid_report);
-//  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount, true);
-//  hidJoystickReportDescSize = generateDeviceDescriptor(hidJoystickReportDesc,hidJoystickReportDescSize,1,AxisCount,AxisResolution,ButtonCount,HatCount);
-  
-
-  uint bufferSize;
-  uint8_t *buffer = makeDescriptor(1, AxisResolution, AxisCount, HatCount, ButtonCount, &bufferSize);
+  //resetStack();
+  uint bufferSize=0;
+  uint8_t *buffer = (uint8_t*)malloc(MAX_HID_DESCRIPTOR_SIZE);
+  makeDescriptor(1, AxisResolution, AxisCount, HatCount, ButtonCount, buffer, &bufferSize);
 
 
   if (jr == NULL)
@@ -287,7 +275,7 @@ void setupUSB() {
   SerialTinyUSB.begin(115200);
   
   if (DeviceCount > 0) {
-    hid_joystick.setPollInterval(2);
+    hid_joystick.setPollInterval(0);
     hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
     hid_joystick.setReportDescriptor(buffer, bufferSize);
     hid_joystick.setReportCallback(get_report_callback, set_report_callback);
@@ -296,9 +284,7 @@ void setupUSB() {
   if (enableMouseAndKeyboard) {
     // HID report descriptor using TinyUSB's template
   uint8_t desc_hid_report[] = {
-    //keyboard
-    5,1,9,6,161,1,133,1,5,7,25,224,41,231,21,0,37,1,149,8,117,1,129,2,149,1,117,8,129,1,5,8,25,1,41,5,149,5,117,1,145,2,149,1,117,3,145,1,5,7,25,0,42,255,0,21,0,38,255,0,149,6,117,8,129,0,192,
-
+    TUD_HID_REPORT_DESC_KEYBOARD( VA_HID_REPORT_ID(1) ),
     TUD_HID_REPORT_DESC_MOUSE   ( VA_HID_REPORT_ID(2) ),
   };
 
@@ -354,7 +340,6 @@ void setup() {
 }
 
 
-uint64_t buttons;
 
 
 /*
@@ -452,8 +437,8 @@ void loop()
   //  rp2040.fifo.pop_nb(t);
   //}
   
-  if (micros() - update_cooldown > 20) {
-    update_cooldown = micros();
+  //if (micros() - update_cooldown > 20) {
+    //update_cooldown = micros();
     if ( 
     jr[report].x != jr_old[report].x           ||
     jr[report].y != jr_old[report].y           ||
@@ -467,15 +452,6 @@ void loop()
     jr[report].hat2 != jr_old[report].hat2     ||
     jr[report].buttons != jr_old[report].buttons) {
       if( TinyUSBDevice.ready()) {
-        
-        //test.x = map_clamped<uint8_t>(jr[0].x,0,UINT8_MAX, 0 ,2047);
-        //test.y = map_clamped<uint8_t>(jr[0].y,0,UINT8_MAX, 0 ,2047);
-        //test.z = map_clamped<uint8_t>(jr[0].z,0,UINT8_MAX, 0 ,2047);
-        //for (uint8_t i = 0; i< sizeof(test.buttons); i++) {
-        //  test.buttons[i]= (uint8_t)random();
-        //}
-        //hid_joystick.sendReport(1, &test, sizeof(test));
-        //hid_joystick.sendReport(3, &test, sizeof(test));
         hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
         readyToSend[report] = true;
         jr_old[report] = jr[report];
@@ -487,7 +463,7 @@ void loop()
     report++;
     if (report > DeviceCountJoystick)
       report = 0;
-  }
+  //}
 }
 
 
@@ -745,7 +721,7 @@ switch (state.mode) {
     bitWrite(jr[0].buttons, 31, !digitalRead(10)); //function
     bitWrite(jr[0].buttons, 32, !digitalRead(11)); // start/stop
     bitWrite(jr[0].buttons, 33, !digitalRead(12)); //reset
-    bitWrite(jr[0].buttons, 34, !bitRead(jr[0].buttons,34)); //reset
+    //bitWrite(jr[0].buttons, 34, !bitRead(jr[0].buttons,34)); //reset
 
     // if (!digitalRead(9)&& digitalRead(8)) { // pg up
     //   bitWrite(buttons, 34, 1);
