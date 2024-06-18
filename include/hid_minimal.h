@@ -245,10 +245,7 @@ typedef struct {
 hid_state stack[16];
 uint8_t sp = 0;
 uint8_t bits = 0;
-void resetStack(){
-  sp=0;
-  bits=0;
-}
+
 #ifdef DESKTOP_ONLY
 typedef struct {
   int offset;

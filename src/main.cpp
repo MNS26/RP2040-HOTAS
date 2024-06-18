@@ -3,7 +3,9 @@
 
 #define MAX_USB_PACKET_SIZE 64
 #define MAX_HID_DESCRIPTOR_SIZE 4096
-#define MAX_REPORT_ID 30
+
+// thechnically there is no ID cap since its limited to the descriptor size but... for ease of use we set it
+#define MAX_REPORT_ID 31 
 #define MAX_OUTPUTS 256
 
 #include <Arduino.h>
@@ -46,15 +48,18 @@ int COLLECTIONS = MAX_COLLECTIONS;
 uint16_t hue;
 uint32_t nextScan = millis();
 uint32_t nextScanPrint = millis();
+
 uint16_t axis_start[MAX_REPORT_ID];
 uint16_t button_start[MAX_REPORT_ID];
 uint16_t hat_start[MAX_REPORT_ID];
 uint16_t total_bits[MAX_REPORT_ID];
+uint16_t largest_bits;
+uint8_t *joystick_buffer= NULL;
 
 uint32_t AxisResolution = 11;
 uint8_t AxisCount = 8;
 uint8_t ButtonCount = 64;
-uint8_t HatCount = 2;
+uint8_t HatCount = 1;
 
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
 uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
@@ -62,7 +67,7 @@ uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
 hid_Joystick_report_t* jr = NULL;
 hid_Joystick_report_t* jr_old = NULL;
 size_t buffsize;
-bool* readyToSend = NULL;
+bool* readyToUpdate = NULL;
 
 Adafruit_USBD_HID hid_joystick;
 Adafruit_USBD_HID hid_kbm;
@@ -254,17 +259,22 @@ void setupUSB() {
   uint8_t *buffer = (uint8_t*)malloc(MAX_HID_DESCRIPTOR_SIZE);
   makeDescriptor(1, AxisResolution, AxisCount, HatCount, ButtonCount, buffer, &bufferSize);
 
-
   if (jr == NULL)
     jr = new hid_Joystick_report_t[DeviceCount];
   if (jr_old == NULL)
     jr_old = new hid_Joystick_report_t[DeviceCount];
-  memset(jr, 0, (uint16_t)sizeof(jr));
-  memset(jr_old, 0, (uint16_t)sizeof(jr_old));
-  readyToSend = (bool*)readyToSend[DeviceCount];
+  memset(jr, 0, (uint16_t)sizeof(hid_Joystick_report_t));
+  memset(jr_old, 0, (uint16_t)sizeof(hid_Joystick_report_t));
+  readyToUpdate = (bool*)readyToUpdate[DeviceCount];
 
 
-
+  for (uint8_t rep = 1; rep < MAX_REPORT_ID; rep++) {
+    largest_bits = (largest_bits < total_bits[rep]) ? total_bits[rep] : largest_bits;
+  }
+  if (joystick_buffer != NULL)
+    free(joystick_buffer);
+  joystick_buffer = (uint8_t*)malloc(largest_bits/8);
+  memset(joystick_buffer, 0, largest_bits/8);
 
   TinyUSBDevice.setID(VID,PID);
   TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
@@ -439,7 +449,7 @@ void loop()
   
   //if (micros() - update_cooldown > 20) {
     //update_cooldown = micros();
-    if ( 
+    if ( !readyToUpdate[report] &&
     jr[report].x != jr_old[report].x           ||
     jr[report].y != jr_old[report].y           ||
     jr[report].z != jr_old[report].z           ||
@@ -453,7 +463,7 @@ void loop()
     jr[report].buttons != jr_old[report].buttons) {
       if( TinyUSBDevice.ready()) {
         hid_joystick.sendReport(report+1, &jr[report], sizeof(jr[report]));
-        readyToSend[report] = true;
+        readyToUpdate[report] = true;
         jr_old[report] = jr[report];
       }
       if (TinyUSBDevice.suspended()) {
@@ -648,17 +658,18 @@ switch (state.mode) {
     case 0b1001:  jr[0].hat1 = 0b0010; break;
     default: jr[0].hat1 = 0b0000; break;
   }
-  switch (state.pov_2) {
-    case 0b0001:  jr[0].hat2 = 0b0011; break;
-    case 0b0011:  jr[0].hat2 = 0b0100; break;
-    case 0b0010:  jr[0].hat2 = 0b0101; break;
-    case 0b0110:  jr[0].hat2 = 0b0110; break;
-    case 0b0100:  jr[0].hat2 = 0b0111; break;
-    case 0b1100:  jr[0].hat2 = 0b1000; break;
-    case 0b1000:  jr[0].hat2 = 0b0001; break;
-    case 0b1001:  jr[0].hat2 = 0b0010; break;
-    default: jr[0].hat2 = 0b0000; break;
-  }
+
+  // switch (state.pov_2) {
+  //   case 0b0001:  jr[0].hat2 = 0b0011; break;
+  //   case 0b0011:  jr[0].hat2 = 0b0100; break;
+  //   case 0b0010:  jr[0].hat2 = 0b0101; break;
+  //   case 0b0110:  jr[0].hat2 = 0b0110; break;
+  //   case 0b0100:  jr[0].hat2 = 0b0111; break;
+  //   case 0b1100:  jr[0].hat2 = 0b1000; break;
+  //   case 0b1000:  jr[0].hat2 = 0b0001; break;
+  //   case 0b1001:  jr[0].hat2 = 0b0010; break;
+  //   default: jr[0].hat2 = 0b0000; break;
+  // }
   jr[0].x = map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 0), 0, 1023, 0, 2047);
   jr[0].y = map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 0), 0, 1023, 0, 2047);
   jr[0].z = map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, 2047);  //yaw
@@ -677,7 +688,7 @@ switch (state.mode) {
   //jr[0].rz = getAxisI2cSlave(0x21, 4);
   //jr[0].dial = getAxisI2cSlave(0x21, 5);
 
-  if (readyToSend[0]) {
+  if (readyToUpdate[0]) {
     bitWrite(jr[0].buttons, 0, state.trigger_stage_1);
     bitWrite(jr[0].buttons, 1, state.button_fire);
     bitWrite(jr[0].buttons, 2, state.button_a);
@@ -752,8 +763,8 @@ switch (state.mode) {
     //   bitWrite(buttons, 35, 0);
     //   bitWrite(buttons, 36, 0);
     // }
-    bitWrite(jr[0].buttons, 37, !digitalRead(13)); // mfd select
-    readyToSend[0] = false;  
+    bitWrite(jr[0].buttons, 38, !digitalRead(13)); // mfd select
+    readyToUpdate[0] = false;  
   };
   //if (!digitalRead(10)||!digitalRead(11)||!digitalRead(12)||!digitalRead(13)) {digitalWrite(LED_BUILTIN,1);}else {digitalWrite(LED_BUILTIN,0);}  //if( rp2040.fifo.push_nb(buttons))
   //{
