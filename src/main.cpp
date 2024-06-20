@@ -515,9 +515,9 @@ void loop()
       readyToUpdate[1] = false;
     //}
   }
-  report++;
-  if (report >= MAX_REPORT_ID)
-    report = 1;
+  //report++;
+  //if (report >= MAX_REPORT_ID)
+  //  report = 1;
   
   //}
 }
@@ -702,8 +702,8 @@ switch (state.mode) {
   //Serial.print(" ");
   //Serial.println(getAxisI2cSlave<uint16_t>(0x21, 5),BIN);
 
-if (readyToUpdate[1]== false && joystick_buffer != NULL) {
-    memset(reports[1], 0, largest_bits/8);
+if (readyToUpdate[1]== false) {
+    memset(joystick_buffer, 0, largest_bits/8);
     switch (state.pov_1) {
       case 0b0001:  set_hat(joystick_buffer, 1, 1 ,0b0011); break;
       case 0b0011:  set_hat(joystick_buffer, 1, 1 ,0b0100); break;
