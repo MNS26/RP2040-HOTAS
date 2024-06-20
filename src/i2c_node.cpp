@@ -52,6 +52,14 @@ void request();
 uint16_t readMuxChannel(uint8_t channel);
 
 
+///////////////////////////////////////////////
+// primary core used for noce specific tasks //
+///////////////////////////////////////////////
+
+////////////////////////////////////////////
+// secondary core used for communications //
+////////////////////////////////////////////
+
 void setup() {
   
 #if defined(ARDUINO_RASPBERRY_PI_PICO)||defined(ARDUINO_RASPBERRY_PI_PICO_W) // This changes the SMPS to be less efficient but also less noisy
@@ -101,17 +109,8 @@ void setup() {
 
 }
 
+
 void loop() {
-  //if (ext_pixel.canShow())
-  //  ext_pixel.show();
-  //auto a = 0;
-  //a = readMuxChannel(0); //nub 
-  //a = readMuxChannel(1); //nub
-  //a = readMuxChannel(2); //nub
-  //a = readMuxChannel(3); //nub
-  //a = readMuxChannel(4); //axis
-  //a = readMuxChannel(5); //axis
-  //a = readMuxChannel(6); //axis
 
 }
 
@@ -268,6 +267,7 @@ void setup1() {
 
   Wire.setSDA(I2C_SDA);
   Wire.setSCL(I2C_SCL);
+  Wire.setTimeout(100, true);
 #ifdef I2CSPEED
   //Wire.setClock(I2CSPEED);
 #else

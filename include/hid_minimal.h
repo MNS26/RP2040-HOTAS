@@ -255,7 +255,7 @@ typedef struct {
   uint input_variable;
 } output;
 
-#define MAX_REPORT_ID 16
+#define MAX_REPORT_ID 31
 #define MAX_OUTPUTS 256
 output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
 unsigned int output_count[MAX_REPORT_ID];
