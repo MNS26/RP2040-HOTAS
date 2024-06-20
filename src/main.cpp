@@ -53,15 +53,16 @@ uint16_t axis_start[MAX_REPORT_ID];
 uint16_t button_start[MAX_REPORT_ID];
 uint16_t hat_start[MAX_REPORT_ID];
 uint16_t total_bits[MAX_REPORT_ID];
-uint8_t reports[MAX_REPORT_ID][64];
-bool readyToUpdate[MAX_REPORT_ID]={false};
+volatile uint8_t reports[MAX_REPORT_ID][64];
+uint8_t old_reports[MAX_REPORT_ID][64];
+volatile bool readyToUpdate[MAX_REPORT_ID]={false};
 uint16_t largest_bits;
 uint8_t *joystick_buffer = NULL;
 uint8_t *report_buffer = NULL;
 
 uint32_t AxisResolution = 11;
 uint8_t AxisCount = 8;
-uint8_t ButtonCount = 64;
+uint8_t ButtonCount = 81;
 uint8_t HatCount = 1;
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
 uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
@@ -153,7 +154,49 @@ x52::pro::JoystickClient<D22, D21, D26, D20> joystick_client;
     Callbacks  
   =============
 */
-#include "hid_Report_Callback.h"
+
+// Invoked when received GET_REPORT control request
+// Application must fill buffer report's content and return its length.
+// Return zero will cause the stack to STALL request
+uint16_t get_report_callback (uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
+{
+  Serial.print("get_report type: ");
+  Serial.println((int)report_type);
+  Serial.print("get_report id: ");
+  Serial.println((int)report_id);
+  switch (report_type)
+  {
+    case (hid_report_type_t)HID_REPORT_TYPE_INVALID:
+    case (hid_report_type_t)HID_REPORT_TYPE_OUTPUT:
+    break;
+
+    case (hid_report_type_t)HID_REPORT_TYPE_INPUT:
+    case (hid_report_type_t)HID_REPORT_TYPE_FEATURE:	
+    return reqlen;
+  }
+  return 0;
+}
+
+// Invoked when received SET_REPORT control request or
+// received data on OUT endpoint ( Report ID = 0, Type = 0 )
+void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
+{
+  Serial.print("set_report type: ");
+  Serial.println((int)report_type);
+  Serial.print("set_report id: ");
+  Serial.println(report_id);
+ 
+  switch (report_type)
+  {
+    case HID_REPORT_TYPE_INVALID:
+    case HID_REPORT_TYPE_INPUT:
+    case HID_REPORT_TYPE_OUTPUT:
+    break;
+
+    case HID_REPORT_TYPE_FEATURE:
+    break;
+  }
+}
 
 
 bool getButtonI2cSlave (int slaveID, int inputID) {
@@ -219,7 +262,7 @@ void SerialI2cScanner() {
 }
 
 
-void set_button(uint8_t *report, int reportid, uint button, uint value) {
+void set_button(volatile uint8_t *report, int reportid, uint button, uint value) {
   int bit = button_start[reportid] + button;
   int byte = bit / 8;
   int shift = bit % 8;
@@ -227,7 +270,7 @@ void set_button(uint8_t *report, int reportid, uint button, uint value) {
   report[byte] |= (value & 1) << shift;
 }
 
-void set_axis(uint8_t *report, int reportid, int axis, uint32_t value) {
+void set_axis(volatile uint8_t *report, int reportid, int axis, uint32_t value) {
   int remaining_bits = AxisResolution;
   int bitoffset = axis_start[reportid]+(AxisResolution*axis);
   while (remaining_bits) {
@@ -242,7 +285,7 @@ void set_axis(uint8_t *report, int reportid, int axis, uint32_t value) {
   }
 }
 
-void set_hat(uint8_t *report, uint8_t reportid, uint8_t hat, uint8_t value) {
+void set_hat(volatile uint8_t *report, uint8_t reportid, uint8_t hat, uint8_t value) {
   uint8_t remaining_bits = 4; // resolution of hats
   int bitoffset = hat_start[reportid] + (hat * remaining_bits);
   while (remaining_bits) {
@@ -402,34 +445,34 @@ void loop()
   server.handleClient();
   MDNS.update();
 
-  if (millis() - check_firmware_update > 1000) {
-    if (fileSystem->exists("/firmware.bin")) {
-      File firmware =  fileSystem->open("/firmware.bin","r");
-      if (firmware) {
-        Serial.println(F("found!"));
-        Serial.println(F("Try to update!"));
-        Update.onProgress(progressCallBack);
-        Update.begin(firmware.size(), U_FLASH);
-        Update.writeStream(firmware);
-        if (Update.end()){
-          Serial.println(F("Update finished!"));
-          rebootUpdate = true;
-        }else{
-          Serial.println(F("Update error!"));
-          Serial.println(Update.getError());
-        }
-        firmware.close();
-        if (fileSystem->rename("/firmware.bin", "/firmware.bak")){
-          Serial.println(F("Firmware rename succesfully!"));
-        }else{
-          Serial.println(F("Firmware rename error!"));
-        }
-      }
-      if (rebootUpdate) {
-        rp2040.reboot();
-      }
-    }
-  }
+  // if (millis() - check_firmware_update > 1000) {
+  //   if (fileSystem->exists("/firmware.bin")) {
+  //     File firmware =  fileSystem->open("/firmware.bin","r");
+  //     if (firmware) {
+  //       Serial.println(F("found!"));
+  //       Serial.println(F("Try to update!"));
+  //       Update.onProgress(progressCallBack);
+  //       Update.begin(firmware.size(), U_FLASH);
+  //       Update.writeStream(firmware);
+  //       if (Update.end()){
+  //         Serial.println(F("Update finished!"));
+  //         rebootUpdate = true;
+  //       }else{
+  //         Serial.println(F("Update error!"));
+  //         Serial.println(Update.getError());
+  //       }
+  //       firmware.close();
+  //       if (fileSystem->rename("/firmware.bin", "/firmware.bak")){
+  //         Serial.println(F("Firmware rename succesfully!"));
+  //       }else{
+  //         Serial.println(F("Firmware rename error!"));
+  //       }
+  //     }
+  //     if (rebootUpdate) {
+  //       rp2040.reboot();
+  //     }
+  //   }
+  // }
 #endif
 
   if(TinyUSBDevice.ready()) {
@@ -508,16 +551,17 @@ void loop()
     //     TinyUSBDevice.remoteWakeup();
     //   }
     // }
-
-  if (readyToUpdate[1]) {
+  if (readyToUpdate[report] ){
     //if (TinyUSBDevice.ready()) {
-      hid_joystick.sendReport(1, joystick_buffer, total_bits[1]/8);
-      readyToUpdate[1] = false;
+      hid_joystick.sendReport(report, (void *)reports[report], total_bits[report]/8);
+      memcpy(old_reports[report],(void *)reports[report],total_bits[report]/8);
+      readyToUpdate[report] = false;
     //}
   }
-  //report++;
-  //if (report >= MAX_REPORT_ID)
-  //  report = 1;
+  
+  report++;
+  if (report >= MAX_REPORT_ID)
+    report = 1;
   
   //}
 }
@@ -703,64 +747,64 @@ switch (state.mode) {
   //Serial.println(getAxisI2cSlave<uint16_t>(0x21, 5),BIN);
 
 if (readyToUpdate[1]== false) {
-    memset(joystick_buffer, 0, largest_bits/8);
+    memset((void *)reports[1], 0, largest_bits/8);
     switch (state.pov_1) {
-      case 0b0001:  set_hat(joystick_buffer, 1, 1 ,0b0011); break;
-      case 0b0011:  set_hat(joystick_buffer, 1, 1 ,0b0100); break;
-      case 0b0010:  set_hat(joystick_buffer, 1, 1 ,0b0101); break;
-      case 0b0110:  set_hat(joystick_buffer, 1, 1 ,0b0110); break;
-      case 0b0100:  set_hat(joystick_buffer, 1, 1 ,0b0111); break;
-      case 0b1100:  set_hat(joystick_buffer, 1, 1 ,0b1000); break;
-      case 0b1000:  set_hat(joystick_buffer, 1, 1 ,0b0001); break;
-      case 0b1001:  set_hat(joystick_buffer, 1, 1 ,0b0010); break;
-      default: set_hat(joystick_buffer, 1, 1, 0b0000); break;
+      case 0b0001:  set_hat(reports[1], 1, 1 ,0b0011); break;
+      case 0b0011:  set_hat(reports[1], 1, 1 ,0b0100); break;
+      case 0b0010:  set_hat(reports[1], 1, 1 ,0b0101); break;
+      case 0b0110:  set_hat(reports[1], 1, 1 ,0b0110); break;
+      case 0b0100:  set_hat(reports[1], 1, 1 ,0b0111); break;
+      case 0b1100:  set_hat(reports[1], 1, 1 ,0b1000); break;
+      case 0b1000:  set_hat(reports[1], 1, 1 ,0b0001); break;
+      case 0b1001:  set_hat(reports[1], 1, 1 ,0b0010); break;
+      default: set_hat(reports[1], 1, 1, 0b0000); break;
     }
   
-    set_axis(joystick_buffer, 1, 1, map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 0), 0, 1023, 0, 2047));
-    set_axis(joystick_buffer, 1, 2, map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 0), 0, 1023, 0, 2047));
-    set_axis(joystick_buffer, 1, 3, map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, 2047));  //yaw
-    set_axis(joystick_buffer, 1, 4, map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0));
+    set_axis(reports[1], 1, 0, map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 0), 0, 1023, 0, 2047));
+    set_axis(reports[1], 1, 1, map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 0), 0, 1023, 0, 2047));
+    set_axis(reports[1], 1, 2, map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, 2047));  //yaw
+    set_axis(reports[1], 1, 3, map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0));
 
-    set_button(joystick_buffer, 1, 0, state.trigger_stage_1);
-    set_button(joystick_buffer, 1, 1, state.button_fire);
-    set_button(joystick_buffer, 1, 2, state.button_a);
-    set_button(joystick_buffer, 1, 3, state.button_b);
-    set_button(joystick_buffer, 1, 4, state.button_c);
-    set_button(joystick_buffer, 1, 5, state.pinkie_switch);
-    set_button(joystick_buffer, 1, 6, getButtonI2cSlave(0x21, Button1));
-    set_button(joystick_buffer, 1, 7, getButtonI2cSlave(0x21, Button3));
-    set_button(joystick_buffer, 1, 8, state.button_t1);
-    set_button(joystick_buffer, 1, 9, state.button_t2);
-    set_button(joystick_buffer, 1, 10, state.button_t3);
-    set_button(joystick_buffer, 1, 11, state.button_t4);
-    set_button(joystick_buffer, 1, 12, state.button_t5);
-    set_button(joystick_buffer, 1, 13, state.button_t6);
-    set_button(joystick_buffer, 1, 14, state.trigger_stage_2);
-    set_button(joystick_buffer, 1, 15, getButtonI2cSlave(0x21, Button10));
-    set_button(joystick_buffer, 1, 16, empty); // scroll up
-    set_button(joystick_buffer, 1, 17, empty); //scroll down
-    set_button(joystick_buffer, 1, 18, getButtonI2cSlave(0x21, Button11));
-    set_button(joystick_buffer, 1, 19, p2u);
-    set_button(joystick_buffer, 1, 20, p2r);
-    set_button(joystick_buffer, 1, 21, p2d);
-    set_button(joystick_buffer, 1, 22, p2l);
-    set_button(joystick_buffer, 1, 23, getButtonI2cSlave(0x21, Button7));
-    set_button(joystick_buffer, 1, 24, getButtonI2cSlave(0x21, Button6));
-    set_button(joystick_buffer, 1, 25, getButtonI2cSlave(0x21, Button5));
-    set_button(joystick_buffer, 1, 26, getButtonI2cSlave(0x21, Button4));
-    set_button(joystick_buffer, 1, 27, M1);
-    set_button(joystick_buffer, 1, 28, M2);
-    set_button(joystick_buffer, 1, 29, M3);
-    set_button(joystick_buffer, 1, 30, getButtonI2cSlave(0x21, Button2));
+    set_button(reports[1], 1, 0, state.trigger_stage_1);
+    set_button(reports[1], 1, 1, state.button_fire);
+    set_button(reports[1], 1, 2, state.button_a);
+    set_button(reports[1], 1, 3, state.button_b);
+    set_button(reports[1], 1, 4, state.button_c);
+    set_button(reports[1], 1, 5, state.pinkie_switch);
+    set_button(reports[1], 1, 6, getButtonI2cSlave(0x21, Button1));
+    set_button(reports[1], 1, 7, getButtonI2cSlave(0x21, Button3));
+    set_button(reports[1], 1, 8, state.button_t1);
+    set_button(reports[1], 1, 9, state.button_t2);
+    set_button(reports[1], 1, 10, state.button_t3);
+    set_button(reports[1], 1, 11, state.button_t4);
+    set_button(reports[1], 1, 12, state.button_t5);
+    set_button(reports[1], 1, 13, state.button_t6);
+    set_button(reports[1], 1, 14, state.trigger_stage_2);
+    set_button(reports[1], 1, 15, getButtonI2cSlave(0x21, Button10));
+    set_button(reports[1], 1, 16, empty); // scroll up
+    set_button(reports[1], 1, 17, empty); //scroll down
+    set_button(reports[1], 1, 18, getButtonI2cSlave(0x21, Button11));
+    set_button(reports[1], 1, 19, p2u);
+    set_button(reports[1], 1, 20, p2r);
+    set_button(reports[1], 1, 21, p2d);
+    set_button(reports[1], 1, 22, p2l);
+    set_button(reports[1], 1, 23, getButtonI2cSlave(0x21, Button7));
+    set_button(reports[1], 1, 24, getButtonI2cSlave(0x21, Button6));
+    set_button(reports[1], 1, 25, getButtonI2cSlave(0x21, Button5));
+    set_button(reports[1], 1, 26, getButtonI2cSlave(0x21, Button4));
+    set_button(reports[1], 1, 27, M1);
+    set_button(reports[1], 1, 28, M2);
+    set_button(reports[1], 1, 29, M3);
+    set_button(reports[1], 1, 30, getButtonI2cSlave(0x21, Button2));
 
   // 15/14 scroll mfd
   // 9/8 pg scroll
 
 
-    set_button(joystick_buffer, 1, 31, !digitalRead(10)); //function
-    set_button(joystick_buffer, 1, 32, !digitalRead(11)); //start/stop
-    set_button(joystick_buffer, 1, 33, !digitalRead(12)); //reset
-    set_button(joystick_buffer, 1, 38, !digitalRead(13)); // mfd select
+    set_button(reports[1], 1, 31, !digitalRead(10)); //function
+    set_button(reports[1], 1, 32, !digitalRead(11)); //start/stop
+    set_button(reports[1], 1, 33, !digitalRead(12)); //reset
+    set_button(reports[1], 1, 38, !digitalRead(13)); // mfd select
     //bitWrite(jr[0].buttons, 34, !bitRead(jr[0].buttons,34)); //reset
 
     // if (!digitalRead(9)&& digitalRead(8)) { // pg up
@@ -792,7 +836,9 @@ if (readyToUpdate[1]== false) {
     //   bitWrite(buttons, 35, 0);
     //   bitWrite(buttons, 36, 0);
     // }
-    readyToUpdate[1] = true;  
+    if (memcmp((void *)reports[1],old_reports[1], total_bits[1]/8) != 0) {
+      readyToUpdate[1] = true;  
+    }
   };
   //if (!digitalRead(10)||!digitalRead(11)||!digitalRead(12)||!digitalRead(13)) {digitalWrite(LED_BUILTIN,1);}else {digitalWrite(LED_BUILTIN,0);}  //if( rp2040.fifo.push_nb(buttons))
   //{

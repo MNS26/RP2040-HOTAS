@@ -69,9 +69,9 @@ void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uin
           hid_usage(&p, HID_USAGE_DESKTOP_X+i);
         }
         hid_logical_min(&p, 0);
+        hid_logical_max(&p, (1<<bitsPerAxis)-1);
         hid_physical_min(&p, -32768);
         hid_physical_max(&p, 32767);
-        hid_logical_max(&p, (1<<bitsPerAxis)-1);
         hid_report_count(&p, axisCount);
         hid_report_size(&p, bitsPerAxis);
         hid_input(&p, HID_DATA|HID_VARIABLE|HID_ABSOLUTE|HID_WRAP_NO|HID_LINEAR|HID_PREFERRED_STATE|HID_NO_NULL_POSITION);
