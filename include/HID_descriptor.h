@@ -41,7 +41,8 @@ void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uin
           }
       }
       
-      hid_usage_page(&p, HID_USAGE_PAGE_DESKTOP);
+      if (hatCount || axisCount)
+        hid_usage_page(&p, HID_USAGE_PAGE_DESKTOP);
 
       if (hatCount) {
         hat_start[reportID] = bits;
