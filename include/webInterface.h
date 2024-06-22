@@ -31,10 +31,9 @@
 
 const char* ssid = STASSID;
 const char* password = STAPSK;
-const char* host = "RP2040 hotas";
+const char* host = "RP2040-hotas";
 
 WebServer server(80);
-ServerSessions serverCache(5);
 
 String unsupportedFiles = String();
 
@@ -593,6 +592,7 @@ void updateHid() {
       } else {
         hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
       }
+      server.send(200);
     } else {
       server.send(200,"text/plain",(String)hid_usage_page_val);
     }
@@ -606,6 +606,7 @@ void updateHid() {
       } else {
         hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
       }
+      server.send(200);
     } else {
       server.send(200,"text/plain",(String)hid_usage_val);
     }
@@ -619,6 +620,7 @@ void updateHid() {
       } else {
         AxisCount = 0;
       }
+      server.send(200);
     } else {
       server.send(200,"text/plain",(String)AxisCount);
     }
@@ -632,6 +634,7 @@ void updateHid() {
       } else {
         ButtonCount = 0;
       }
+      server.send(200);
     } else {
       server.send(200,"text/plain",(String)ButtonCount);
     }
@@ -645,6 +648,7 @@ void updateHid() {
       } else {
         HatCount = 0;
       }
+      server.send(200);
     } else {
       server.send(200,"text/plain",(String)HatCount);
     }
@@ -752,7 +756,7 @@ void setupWifi() {
   // Get I2C slave list
   server.on("/listI2C", i2cResult);
 
-  server.on("/settings",NULL);
+  server.on("/settings",[](){if(handleFileRead(F("/settings.html"))) {return;}});
 
   server.on("/settings/updatehid",updateHid);
 

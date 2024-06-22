@@ -73,7 +73,7 @@ uint8_t device_max_axis_count = 8;
 
 uint32_t AxisResolution = 11;
 uint16_t AxisCount = 8;
-uint16_t ButtonCount = 80;
+uint16_t ButtonCount = 64;
 uint16_t HatCount = 1;
 
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
@@ -112,8 +112,8 @@ SDFSConfig fileSystemConfig = SDFSConfig();
 void setupUSB();
 
 static bool fsOK;
-#ifdef ARDUINO_RASPBERRY_PI_PICO_W
-#include "picow_only.h"
+#ifdef ARDUINO_RASPBERRY_PI_PICO_W //todo add more wifi boards (eg esp32)
+#include "webInterface.h"
 extern FS* fileSystem;
 #endif
 
@@ -391,7 +391,6 @@ void setupUSB() {
     hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
     hid_kbm.begin();
   }
-  
   // wait until device mounted
   //while (!TinyUSBDevice.mounted()){	delay(1); }
   //delay(100);
@@ -411,6 +410,7 @@ void setup() {
 #endif
 
   setupUSB();
+
 
 
   //SPI.setRX(4);
