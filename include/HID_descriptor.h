@@ -1,6 +1,6 @@
 #include "hid.h"
 
-void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uint8_t hatCount, uint8_t buttonCount,uint8_t *buffer, uint *bufferSize) {
+void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uint8_t hatCount, uint8_t buttonCount, uint8_t *buffer, uint *bufferSize) {
   extern uint16_t axis_start[];
   extern uint16_t hat_start[];
   extern uint16_t button_start[];
@@ -19,9 +19,9 @@ void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uin
     output_index = 0;
 #endif
     hid_report_id(&p, reportID);
-    hid_usage_page(&p, hid_usage_page_val );
-    hid_usage(&p ,hid_usage_val );
-    hid_collection(&p, HID_COLLECTION_PHYSICAL );
+    //hid_usage_page(&p, hid_usage_page_val );
+    //hid_usage(&p ,hid_usage_val );
+    //hid_collection(&p, HID_COLLECTION_PHYSICAL );
 
       if (buttonCount) {
         button_start[reportID] = bits;
@@ -41,7 +41,7 @@ void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uin
           }
       }
       
-      if (hatCount || axisCount)
+      if (hatCount>0 || axisCount>0)
         hid_usage_page(&p, HID_USAGE_PAGE_DESKTOP);
 
       if (hatCount) {
@@ -84,7 +84,7 @@ void makeDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uin
         }
       }
 
-    hid_collection_end(&p);
+    //hid_collection_end(&p);
   hid_collection_end(&p);
   total_bits[reportID] = bits;
   *bufferSize = p - buffer;

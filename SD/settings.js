@@ -195,6 +195,7 @@ function UsagePageTypeChanged(e) {
 }
 
 function UsagePageSubTypeChanged(e) {
-  usage = e.target.options.selectedIndex;
+  console.log(e.target.options[e.target.options.selectedIndex].label);
+  usage = e.target.options[e.target.options.selectedIndex].value;
   console.log(usagePage, usage);
 }

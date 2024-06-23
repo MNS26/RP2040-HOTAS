@@ -9,6 +9,7 @@
 #define MAX_OUTPUTS 256
 
 #include <Arduino.h>
+
 #include "Commands.h"
 #include "Common.h"
 #include "hid_minimal.h"
@@ -42,10 +43,10 @@ uint8_t DeviceCount;
 uint16_t hue;
 uint32_t nextScan = millis();
 uint32_t nextScanPrint = millis();
-
+volatile bool update_usb;
 uint usb_report_size;
 uint8_t usb_report[MAX_HID_DESCRIPTOR_SIZE];
-auto a = &usb_report;
+
 typedef struct {
   uint8_t buttons;
   uint8_t hats;
@@ -326,6 +327,15 @@ void setupUSB() {
 
   // reset the connection
  TinyUSBDevice.detach();
+  memset(inputs_id, 0, sizeof(inputs_id));
+  memset(usb_report, 0, sizeof(usb_report));
+  memset(button_start,0,sizeof(button_start));
+  memset(hat_start,0,sizeof(hat_start));
+  memset(axis_start,0,sizeof(axis_start));
+  memset(total_bits,0,sizeof(total_bits));
+  usb_report_size=0;
+  largest_bits=0;
+  DeviceCount=0;
 
   /* 
     Calculate how many "devices" we will need to emulate
@@ -333,19 +343,7 @@ void setupUSB() {
     Calculate how many hats per "device"
     Calculate how many axis per "device"
   */
-  for (uint8_t i = 0; i < MAX_REPORT_ID; i++){
-    inputs_id[i].axis=0;
-    inputs_id[i].hats=0;
-    inputs_id[i].buttons=0;
-  }
-  memset(usb_report, 0, MAX_HID_DESCRIPTOR_SIZE);
-  memset(button_start,0,MAX_REPORT_ID);
-  memset(hat_start,0,MAX_REPORT_ID);
-  memset(axis_start,0,MAX_REPORT_ID);
-  usb_report_size=0;
-  largest_bits=0;
-  DeviceCount=0;
-
+ 
   for (uint16_t i=ButtonCount, j=1; i>0; i-=MIN(device_max_button_count,i), j++) {
     inputs_id[j].buttons = i>device_max_button_count ? device_max_button_count:i;
     DeviceCount = j>DeviceCount ? j:DeviceCount;
@@ -391,9 +389,7 @@ void setupUSB() {
     hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
     hid_kbm.begin();
   }
-  // wait until device mounted
-  //while (!TinyUSBDevice.mounted()){	delay(1); }
-  //delay(100);
+  update_usb = false;
 }
 /*
   =========
@@ -444,6 +440,9 @@ void setup() {
  */
 void loop()
 {
+  if (update_usb) {
+    setupUSB();
+  }
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   server.handleClient();
   MDNS.update();
@@ -508,16 +507,16 @@ void loop()
   //  uint32_t t;
   //  rp2040.fifo.pop_nb(t);
   //}
-
-  if (readyToUpdate[report] ){
-      hid_joystick.sendReport(report, (void *)reports[report], total_bits[report]/8);
-      memcpy(old_reports[report],(void *)reports[report],total_bits[report]/8);
-      readyToUpdate[report] = false;
+  if (TinyUSBDevice.ready()) {
+    if (readyToUpdate[report] ){
+        hid_joystick.sendReport(report, (void *)reports[report], total_bits[report]/8);
+        memcpy(old_reports[report],(void *)reports[report],total_bits[report]/8);
+        readyToUpdate[report] = false;
+    }
+    report++;
+    if (report >= DeviceCount)
+      report = 1;
   }
-  
-  report++;
-  if (report >= DeviceCount)
-    report = 1;
 }
 
 

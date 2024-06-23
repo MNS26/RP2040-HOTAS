@@ -584,6 +584,7 @@ void i2cResult() {
 }
 
 void updateHid() {
+  extern volatile bool update_usb;
   if (server.hasArg("usagepage")) {
     String a = server.arg("usagepage");
     if (a.length()) {
@@ -655,7 +656,7 @@ void updateHid() {
   }
 
   if (server.hasArg("restart")) {
-    setupUSB();
+    update_usb = true;
     server.send(200);
   }
 }
