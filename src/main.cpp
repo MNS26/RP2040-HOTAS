@@ -43,7 +43,6 @@ uint8_t DeviceCount;
 uint16_t hue;
 uint32_t nextScan = millis();
 uint32_t nextScanPrint = millis();
-volatile bool update_usb;
 uint usb_report_size;
 uint8_t usb_report[MAX_HID_DESCRIPTOR_SIZE];
 
@@ -74,7 +73,7 @@ uint8_t device_max_axis_count = 8;
 
 uint32_t AxisResolution = 11;
 uint16_t AxisCount = 8;
-uint16_t ButtonCount = 64;
+uint16_t ButtonCount = 65;
 uint16_t HatCount = 1;
 
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
@@ -324,9 +323,7 @@ void progressCallBack(size_t currSize, size_t totalSize) {
 
 
 void setupUSB() {
-
   // reset the connection
- TinyUSBDevice.detach();
   memset(inputs_id, 0, sizeof(inputs_id));
   memset(usb_report, 0, sizeof(usb_report));
   memset(button_start,0,sizeof(button_start));
@@ -363,6 +360,10 @@ void setupUSB() {
     largest_bits = (largest_bits < total_bits[rep]) ? total_bits[rep] : largest_bits;
   }
 
+  Serial.printf("total bytes %d", usb_report_size);
+  Serial.print("EEEEEE");
+  TinyUSBDevice.detach();
+
   TinyUSBDevice.setID(VID,PID);
   TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
   TinyUSBDevice.setProductDescriptor("RP2040-HOTAS");
@@ -389,7 +390,6 @@ void setupUSB() {
     hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
     hid_kbm.begin();
   }
-  update_usb = false;
 }
 /*
   =========
@@ -440,9 +440,6 @@ void setup() {
  */
 void loop()
 {
-  if (update_usb) {
-    setupUSB();
-  }
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   server.handleClient();
   MDNS.update();

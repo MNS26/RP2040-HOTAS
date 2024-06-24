@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
 #define MAX_HID_DESCRIPTOR_SIZE 4096
 
 #define TU_ATTR_PACKED __attribute__((packed))
@@ -10,13 +11,20 @@
 
 #include "include/hid_minimal.h"
 #include "include/HID_descriptor.h"
+
+typedef struct {
+  uint8_t buttons;
+  uint8_t hats;
+  uint8_t axis;
+} input_id;
+
 uint8_t device_max_button_count = 79;
 uint8_t device_max_hat_count = 4;
 uint8_t device_max_axis_count = 9;
 
 uint32_t AxisResolution = 11;
 uint16_t AxisCount = 8;
-uint16_t ButtonCount = 400;
+uint16_t ButtonCount = 65;
 uint16_t HatCount = 1;
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
 uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
@@ -24,13 +32,6 @@ uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
 uint8_t DeviceCount=0;
 uint usb_report_size;
 uint8_t usb_report[MAX_HID_DESCRIPTOR_SIZE];
-
-typedef struct {
-  uint8_t buttons;
-  uint8_t hats;
-  uint8_t axis;
-
-} input_id;
 
 input_id inputs_id[MAX_REPORT_ID]; 
 uint16_t axis_start[MAX_REPORT_ID];
@@ -41,8 +42,6 @@ uint8_t reports[MAX_REPORT_ID][64];
 uint8_t old_reports[MAX_REPORT_ID][64];
 uint8_t readyToUpdate[MAX_REPORT_ID];
 uint16_t largest_bits;
-
-
 
 
 int min(int x, int y) {return y^((x^y)&-(x<y));}
@@ -97,15 +96,11 @@ void setupUSB() {
     Calculate how many hats per "device"
     Calculate how many axis per "device"
   */
-  for (uint8_t i = 0; i < MAX_REPORT_ID; i++){
-    inputs_id[i].axis=0;
-    inputs_id[i].hats=0;
-    inputs_id[i].buttons=0;
-  }
-  memset(usb_report, 0, MAX_HID_DESCRIPTOR_SIZE);
-  memset(button_start,0,MAX_REPORT_ID);
-  memset(hat_start,0,MAX_REPORT_ID);
-  memset(axis_start,0,MAX_REPORT_ID);
+  memset(inputs_id, 0, sizeof(inputs_id));
+  memset(usb_report, 0, sizeof(usb_report));
+  memset(button_start,0, sizeof(button_start));
+  memset(hat_start,0, sizeof(hat_start));
+  memset(axis_start,0, sizeof(axis_start));
   usb_report_size=0;
   largest_bits=0;
   DeviceCount=0;
@@ -140,7 +135,7 @@ int main(int argc, char **argv) {
     ButtonCount
   );
   setupUSB();
-
+  AxisCount = 0;
   setupUSB();
   for (uint8_t i = 0; i <8; i++) {
     set_axis(reports[1],1,i,(1<<AxisResolution)-1);
