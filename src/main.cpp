@@ -25,7 +25,6 @@
 
 
 
-
 bool LED_on;
 bool LED_breathe;
 uint8_t LED_brightness;
@@ -37,7 +36,7 @@ int report = 1;
 /*== LED ==*/
 Adafruit_NeoPixel pixel;
 
-bool enableMouseAndKeyboard = 0;
+bool enableKBM = 0;
 uint8_t DeviceCount;
 
 uint16_t hue;
@@ -109,7 +108,7 @@ SDFSConfig fileSystemConfig = SDFSConfig();
 #else
 #error Please select a filesystem first by uncommenting one of the "#define USE_xxx" lines at the beginning of the sketch.
 #endif
-void setupUSB();
+void setupUSB(bool begin);
 
 static bool fsOK;
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W //todo add more wifi boards (eg esp32)
@@ -322,7 +321,7 @@ void progressCallBack(size_t currSize, size_t totalSize) {
 }
 
 
-void setupUSB() {
+void setupUSB(bool begin) {
   // reset the connection
   memset(inputs_id, 0, sizeof(inputs_id));
   memset(usb_report, 0, sizeof(usb_report));
@@ -360,36 +359,44 @@ void setupUSB() {
     largest_bits = (largest_bits < total_bits[rep]) ? total_bits[rep] : largest_bits;
   }
 
-  Serial.printf("total bytes %d", usb_report_size);
-  Serial.print("EEEEEE");
   TinyUSBDevice.detach();
+  TinyUSBDevice.clearConfiguration();
 
   TinyUSBDevice.setID(VID,PID);
   TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
   TinyUSBDevice.setProductDescriptor("RP2040-HOTAS");
 
   // start the USB device
-  USBDevice.attach();
-  SerialTinyUSB.begin(115200);
+    TinyUSBDevice.addInterface(SerialTinyUSB);
+    if (begin)
+      SerialTinyUSB.begin(115200);
   
   if (DeviceCount > 0) {
     hid_joystick.setPollInterval(1);
     hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
     hid_joystick.setReportDescriptor(usb_report, usb_report_size);
     hid_joystick.setReportCallback(get_report_callback, set_report_callback);
-    hid_joystick.begin();
+    if (hid_joystick.isValid())
+      TinyUSBDevice.addInterface(hid_joystick);
+    else
+      hid_joystick.begin();
   }
-  if (enableMouseAndKeyboard) {
+
+  if (enableKBM) {
     // HID report descriptor using TinyUSB's template
     uint8_t desc_hid_report[] = {
       TUD_HID_REPORT_DESC_KEYBOARD( VA_HID_REPORT_ID(1) ),
       TUD_HID_REPORT_DESC_MOUSE   ( VA_HID_REPORT_ID(2) ),
     };
-
     hid_kbm.setStringDescriptor("TinyUSB Keyboard/Mouse");
     hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
-    hid_kbm.begin();
+    if (hid_kbm.isValid())
+      TinyUSBDevice.addInterface(hid_kbm);
+    else
+      hid_kbm.begin();
   }
+  TinyUSBDevice.attach();
+
 }
 /*
   =========
@@ -405,7 +412,7 @@ void setup() {
   TinyUSB_Device_Init(0);
 #endif
 
-  setupUSB();
+  setupUSB(true);
 
 
 

@@ -656,7 +656,7 @@ void updateHid() {
 
   if (server.hasArg("restart")) {
     server.send(200);
-    setupUSB();
+    setupUSB(false);
   }
 }
 
