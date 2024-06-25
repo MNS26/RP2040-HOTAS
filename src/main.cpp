@@ -9,7 +9,6 @@
 #define MAX_OUTPUTS 256
 
 #include <Arduino.h>
-
 #include "Commands.h"
 #include "Common.h"
 #include "hid_minimal.h"
@@ -23,7 +22,31 @@
 #include "CRC.h"
 #include "Wire.h"
 
+// Select the FileSystem by uncommenting one of the lines below
+// CHECK USB.INI 
 
+#if defined USE_SPIFFS
+#include <FS.h>
+const char* fsName = "SPIFFS";
+FS* fileSystem = &SPIFFS;
+SPIFFSConfig fileSystemConfig = SPIFFSConfig();
+#elif defined USE_LITTLEFS
+#include <LittleFS.h>
+const char* fsName = "LittleFS";
+FS* fileSystem = &LittleFS;
+LittleFSConfig fileSystemConfig = LittleFSConfig();
+#elif defined USE_SDFS
+#include <SDFS.h>
+const char* fsName = "SDFS";
+FS* fileSystem = &SDFS;
+SDFSConfig fileSystemConfig = SDFSConfig();
+// fileSystemConfig.setCSPin(chipSelectPin);
+#else
+#error Please select a filesystem first by uncommenting one of the "#define USE_xxx" lines at the beginning of the sketch.
+#endif
+#include "IniConfig.h"
+
+IniConfig ini(fileSystem);
 
 bool LED_on;
 bool LED_breathe;
@@ -83,37 +106,12 @@ Adafruit_USBD_HID hid_kbm;
 
 byte i2cIDs[128];
 
-// Select the FileSystem by uncommenting one of the lines below
 
-//#define USE_SPIFFS
-//#define USE_LITTLEFS
-#define USE_SDFS
-
-#if defined USE_SPIFFS
-#include <FS.h>
-const char* fsName = "SPIFFS";
-FS* fileSystem = &SPIFFS;
-SPIFFSConfig fileSystemConfig = SPIFFSConfig();
-#elif defined USE_LITTLEFS
-#include <LittleFS.h>
-const char* fsName = "LittleFS";
-FS* fileSystem = &LittleFS;
-LittleFSConfig fileSystemConfig = LittleFSConfig();
-#elif defined USE_SDFS
-#include <SDFS.h>
-const char* fsName = "SDFS";
-FS* fileSystem = &SDFS;
-SDFSConfig fileSystemConfig = SDFSConfig();
-// fileSystemConfig.setCSPin(chipSelectPin);
-#else
-#error Please select a filesystem first by uncommenting one of the "#define USE_xxx" lines at the beginning of the sketch.
-#endif
 void setupUSB(bool begin);
 
 static bool fsOK;
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W //todo add more wifi boards (eg esp32)
 #include "webInterface.h"
-extern FS* fileSystem;
 #endif
 
 
