@@ -22,6 +22,8 @@
 #include "CRC.h"
 #include "Wire.h"
 
+
+
 // Select the FileSystem by uncommenting one of the lines below
 // CHECK USB.INI 
 
@@ -42,11 +44,12 @@ FS* fileSystem = &SDFS;
 SDFSConfig fileSystemConfig = SDFSConfig();
 // fileSystemConfig.setCSPin(chipSelectPin);
 #else
-#error Please select a filesystem first by uncommenting one of the "#define USE_xxx" lines at the beginning of the sketch.
+#error Please select a filesystem first by uncommenting one of the "-D USE_xxx" lines in the usb.ini file located in "config" folder.
 #endif
-#include "IniConfig.h"
 
-IniConfig ini(fileSystem);
+#include "IniConfig.h"
+#include "defaultIni.h"
+IniConfig ini;
 
 bool LED_on;
 bool LED_breathe;
@@ -92,7 +95,7 @@ uint8_t device_max_button_count = 79;
 uint8_t device_max_hat_count = 1;
 // linux actually sees 9 but wine (windows compatibility layer) only works up to 8
 uint8_t device_max_axis_count = 8;
-
+String deviceName[24];
 uint32_t AxisResolution = 11;
 uint16_t AxisCount = 8;
 uint16_t ButtonCount = 65;
@@ -148,7 +151,7 @@ uint32_t rainbow(uint16_t _hue, uint8_t saturation, uint8_t brightness, bool gam
 // this is here since the joystick still works and doesnt need to be replaced (it will be gutted after throttle is properly done)
 
 #define X52_BUSY_WAIT 0
-#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 1
+#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 0
 #include <x52_hotas.h>
 #define MAX_UPDATES_PER_SECOND 300
 
@@ -319,6 +322,37 @@ void progressCallBack(size_t currSize, size_t totalSize) {
 }
 
 
+void setupINI() {
+  if (!fileSystem->exists("/config"))
+    fileSystem->mkdir("/config");
+  if (!fileSystem->exists("/config/settings.ini")) {
+    //File file = fileSystem->open("/config/settings.ini","w");
+    //file.write("");
+    //file.close();
+
+    ini.file("/config/settings.ini");
+    ini.write(    "hid report", "DeviceName",    "RP2040-HID");
+    ini.writeBool("hid report", "enableMouse",    false);
+    ini.writeBool("hid report", "enableKeyboard", false);
+    ini.writeInt( "hid report", "usagepage",      0);
+    ini.writeInt( "hid report", "usage",          0);
+    ini.writeInt( "hid report", "ButtonCount",    0);
+    ini.writeInt( "hid report", "HatCount",       0);
+    ini.writeInt( "hid report", "AxisCount",      0);
+    ini.writeInt( "hid report", "AxisResolution", 0 );
+  }
+
+  //*deviceName = ini.read("hid report", "DeviceName");
+  //deviceName->trim();
+  //hid_usage_page_val = ini.readInt("hid report", "usagepage");
+  //hid_usage_val      = ini.readInt("hid report", "usage");
+  //ButtonCount        = ini.readInt("hid report", "ButtonCount");
+  //HatCount           = ini.readInt("hid report", "HatCount");
+  //AxisCount          = ini.readInt("hid report", "AxisCount");
+  //AxisResolution     = ini.readInt("hid report", "AxisResolution");
+
+}
+
 void setupUSB(bool begin) {
   // reset the connection
   memset(inputs_id, 0, sizeof(inputs_id));
@@ -362,7 +396,7 @@ void setupUSB(bool begin) {
 
   TinyUSBDevice.setID(VID,PID);
   TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
-  TinyUSBDevice.setProductDescriptor("RP2040-HOTAS");
+  TinyUSBDevice.setProductDescriptor(deviceName->c_str());
 
   // start the USB device
     TinyUSBDevice.addInterface(SerialTinyUSB);
@@ -409,24 +443,17 @@ void setup() {
   // - mbed rp2040
   TinyUSB_Device_Init(0);
 #endif
-
-  setupUSB(true);
-
-
-
-  //SPI.setRX(4);
-  //SPI.setTX(7);
-  //SPI.setSCK(6);
-  //SPI.setCS(5);
   fileSystemConfig.setCSPin(17);
 
   ////////////////////////////////
   // FILESYSTEM INIT
-
   fileSystemConfig.setAutoFormat(false);
   fileSystem->setConfig(fileSystemConfig);
   fsOK = fileSystem->begin();
   //DBG_OUTPUT_PORT.println(fsOK ? F("Filesystem initialized.") : F("Filesystem init failed!"));
+  ini.init(fileSystem);
+  setupINI();
+  setupUSB(true);
 
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   setupWifi();

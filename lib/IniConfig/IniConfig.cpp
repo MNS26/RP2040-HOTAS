@@ -1,19 +1,23 @@
 #include "IniConfig.h"
 
-IniConfig::IniConfig(FS* sd) : _fileSystem(_fileSystem), _filepath(nullptr){}
+IniConfig::IniConfig() {}
+
+void IniConfig::init(FS* sd) {
+  _fileSystem = sd;
+}
 
 // TODO: rework this one
-bool IniConfig::open(const char *filepath) { 
+bool IniConfig::file(const char *filepath) { 
   _filepath = filepath;
   return true;
 }
 
 String IniConfig::read(const char *section, const char *key) {
   File file = _fileSystem->open(_filepath, "r");
-  if (!_file) {
+  if (!file) {
     return String("");
   }
-  String fileContent = _file.readString();
+  String fileContent = file.readString();
   file.close();
   int sectionStart, sectionEnd;
   if (!findSection(section, fileContent, sectionStart, sectionEnd)) {
@@ -29,9 +33,9 @@ String IniConfig::read(const char *section, const char *key) {
   return value;
 }
 
-bool IniConfig::write(const char *section, const char *key, const char *value) {
+bool IniConfig::write(const char *section, const char *key, const char *value, bool closeAfterWrite) {
   File file = _fileSystem->open(_filepath, "rw");
-  if (!_file) {
+  if (!file) {
     return false;
   }
   String fileContent = file.readString();
@@ -49,13 +53,14 @@ bool IniConfig::write(const char *section, const char *key, const char *value) {
     fileContent = fileContent.substring(0, sectionStart) + sectionContent + fileContent.substring(sectionEnd);
   }
   file.print(fileContent);
-  file.close();
+  if (closeAfterWrite)
+    file.close();
   return true;
 }
 
 bool IniConfig::remove(const char *section, const char *key) {
   File file = _fileSystem->open(_filepath, "rw");
-  if (!_file) {
+  if (!file) {
     return false;
   }
   String fileContent = file.readString();
@@ -77,7 +82,7 @@ bool IniConfig::remove(const char *section, const char *key) {
 
 bool IniConfig::removeSection(const char *section) {
   File file = _fileSystem->open(_filepath, "rw");
-  if (!_file) {
+  if (!file) {
     return false;
   }
   String fileContent = file.readString();
@@ -89,6 +94,33 @@ bool IniConfig::removeSection(const char *section) {
   file.print(fileContent);
   file.close();
   return true;
+}
+
+bool IniConfig::readBool(const char *section, const char *key) { 
+  return read(section,key)=="true" ? true:false;
+}
+
+int IniConfig::readInt(const char *section, const char *key) { 
+  return read(section,key).toInt();
+}
+
+float IniConfig::readfloat(const char *section, const char *key) {
+  return read(section,key).toFloat();
+}
+
+bool IniConfig::writeBool(const char *section, const char *key,
+                          const bool value, bool closeAfterWrite) {
+  return write(section, key, value ? "true" : "false", closeAfterWrite);
+}
+
+bool IniConfig::writeInt(const char *section, const char *key,
+                         const int value, bool closeAfterWrite) {
+  return write(section, key, String(value).c_str(), closeAfterWrite);
+}
+
+bool IniConfig::writeFloat(const char *section, const char *key,
+                           const double value, bool closeAfterWrite) {
+  return write(section, key, String(value, 6).c_str(), closeAfterWrite); // Use 6 decimal places for float
 }
 
 bool IniConfig::findSection(const char* section, String& fileContent, int& sectionStart, int& sectionEnd) {

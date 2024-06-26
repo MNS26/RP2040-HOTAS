@@ -778,7 +778,7 @@ void setupWifi() {
   // - second callback handles file upload at that location
   server.on("/edit", HTTP_POST, replyOK, handleFileUpload);
 
-  server.on("/edit/index.html", [](){server.send(403);});
+  server.on("/edit/index.html", [](){if (!is_authenticated()) {server.send(403);return;} handleGetEdit();});
 
   server.on("/",[](){if(handleFileRead(F("/index.html"))) {return;}});
 

@@ -1,0 +1,247 @@
+body {
+  background-color: darkgray;
+  font-size: 12px;
+  font-family: Verdana, Arial, Sans-serif;
+}
+.contextMenu {
+  z-index: 300;
+  position: absolute;
+  left: 5px;
+  border: 1px solid #444;
+  background-color: #F5F5F5;
+  display: none;
+  box-shadow: 0 0 10px rgba( 0, 0, 0, .4 );
+  font-size: 11px;
+  font-weight: bold;
+}
+.contextMenu ul {
+  list-style: none;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+}
+.contextMenu li {
+  position: relative;
+  min-width: 60px;
+  cursor: pointer;
+}
+.contextMenu span {
+  color: #444;
+  display: inline-block;
+  padding: 6px;
+}
+.contextMenu li:hover { background: #444; }
+.contextMenu li:hover span { color: #EEE; }
+
+.css-treeview ul, .css-treeview li {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.css-treeview input {
+  position: absolute;
+  opacity: 0;
+}
+.css-treeview {
+  font-size: 11px;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.css-treeview span {
+  color: #00f;
+  cursor: pointer;
+}
+.css-treeview span:hover {
+  text-decoration: underline;
+}
+.css-treeview input + label + ul {
+  margin: 0 0 0 22px;
+}
+.css-treeview input ~ ul {
+  display: none;
+}
+.css-treeview label, .css-treeview label::before {
+  cursor: pointer;
+}
+.css-treeview input:disabled + label {
+  cursor: default;
+  opacity: .6;
+}
+.css-treeview input:checked:not(:disabled) ~ ul {
+  display: block;
+}
+.css-treeview label, .css-treeview span, .css-treeview label::before {
+  background: url(" data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAACgCAMAAAAy5xwmAAAAb1BMVEVHcEyWm55WW2E6QUdAQEBiaG1jaG7///8vNj3KzM7CxMbm5ufMzc/Y2dqxtLaGio58gYWJjZFRVFZJTE/Lzc+vsbNdXV74+PhvdHlsbW2kp6q7vLzy8vMuNTzf39+ho6UyOUCFhYWUl5nv7+/p6ekQi/GRAAAAAXRSTlMAQObYZgAAASRJREFUSMftk9tywiAQhoUAhVAwJpqDRqfavv8zluNKkurEjrY3+e74JizLn2W1miAKxphOBMeUYq6uH/A3A66YpRBRqJZaMI8iwsV/CdM6A2xj5nIUsK0/iTUPrGNm0MUDIkeG/J54uOiksb9hXh55PhIIjfKgdJTHSEy2/FD06Xmod8NOwrrwFUsQmXZHZhhekHBiByYIoaIJAjP8USWiCA8KhEW8UGT7KPaZExsObHyrUgTkjTz8liPXwzwEB+OPFVxHE8X2ckRByLaVyhVKxP27KN+nAtH7Rvur2Dr621tekMes+WiG86Hr6jKYj+7Q1Kd0PpxI58NsQdN/25zlQDQdKb9AnM6fHSGkPsQaJamIpQzCrywhD1iT2XksLCws/IZv8Zof7t25YlkAAAAASUVORK5CYII=") no-repeat;
+}
+.css-treeview label, .css-treeview span, .css-treeview label::before, .css-treeview span::before {
+  display: inline-block;
+  height: 16px;
+  line-height: 16px;
+  vertical-align: middle;
+}
+.css-treeview label {
+  background-position: 18px 0; /* folder icon */
+}
+.css-treeview span {
+  background-position: 18px -48px; /* generic file icon */
+}
+.css-treeview span.txt {
+  background-position: 18px -64px; /* text file icon */
+}
+.css-treeview span.img {
+  background-position: 18px -80px; /* image file icon */
+}
+.css-treeview label::before {
+  content: "";
+  width: 16px;
+  margin: 0 22px 0 0;
+  vertical-align: middle;
+  background-position: 0 -32px; /* expand icon */
+}
+.css-treeview span::before {
+  content: "";
+  width: 16px;
+  margin: 0 22px 0 0;
+}
+.css-treeview input:checked + label::before {
+  background-position: 0 -16px; /* collapse icon */
+}
+
+/* webkit adjacent element selector bugfix */
+@media screen and (-webkit-min-device-pixel-ratio:0)
+{
+  .css-treeview{
+    -webkit-animation: webkit-adjacent-element-selector-bugfix infinite 1s;
+  }
+
+  @-webkit-keyframes webkit-adjacent-element-selector-bugfix 
+  {
+    from  { 
+      padding: 0;
+    } 
+    to  { 
+      padding: 0;
+    }
+  }
+}
+
+#header { 
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height:24px;
+  padding: 1px 1px 0px 10px;
+  background-color: #444;
+  color:#EEE;
+}
+#tree { 
+  position: absolute;
+  top: 25px;
+  bottom: 0;
+  left: 0;
+  width: 20%;
+  padding: 8px;
+}
+#editor, #preview { 
+  position: absolute;
+  top: 25px;
+  right: 0;
+  bottom: 0;
+  left: 20%;
+}
+#preview {
+  background-color: #EEE;
+  padding:5px;
+}
+
+#status {
+  position: absolute;
+  top: 3px;
+  right: 10px;
+  font-size: 15px;
+}
+
+#fsMeter {
+  width:100px;
+  padding-bottom:2px;
+}
+
+#warning {
+  height:100%;
+  background-color:orange;
+  color:black;
+}
+.tooltip {
+  position: absolute;
+  z-index: 2; /* must be above editor which is at 1 */
+  right:0px;
+  top:20px;
+  visibility: hidden;
+  background-color: white;
+  color: black;
+  text-align: center;
+  border: 1px solid #000;
+  padding: 3px;
+  font-size: 10px;
+}
+#warning:hover .tooltip {
+  visibility: visible;
+}
+
+#loading {
+  position:absolute;
+  // note: changing between block and none cancels the opacity anim, so we move it in and out of screen instead by changing the top value
+  // maybe see https://www.impressivewebs.com/animate-display-block-none/ for another approach
+  display:block; 
+  top: -100vh;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 100;
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 500ms ease-in-out;
+}
+#loading.shown {
+  top: 0;
+  opacity: 1;
+}
+
+#loading-msg {
+  display: inline-block;
+  position: absolute;
+  top: 0px;
+  left: 50%;
+  transform: translateX(-50%);
+  color:white;
+  font-size: 32px;
+}
+
+@keyframes spinner-anim {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+/* :not(:required) hides this rule from IE9 and below */
+.spinner-anim:not(:required) {
+  display: inline-block;
+  position: relative;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: spinner-anim 1s infinite linear;
+  border: 16px solid #eee;
+  border-right-color: transparent;
+  border-radius: 32px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-indent: -9999px;
+  width: 64px;
+  height: 64px;
+}
