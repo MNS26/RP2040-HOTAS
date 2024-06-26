@@ -48,8 +48,7 @@ SDFSConfig fileSystemConfig = SDFSConfig();
 #endif
 
 #include "IniConfig.h"
-#include "defaultIni.h"
-IniConfig ini;
+IniConfig ini(&SDFS);
 
 bool LED_on;
 bool LED_breathe;
@@ -344,7 +343,7 @@ void setupINI() {
 
   //*deviceName = ini.read("hid report", "DeviceName");
   //deviceName->trim();
-  //hid_usage_page_val = ini.readInt("hid report", "usagepage");
+  hid_usage_page_val = ini.readInt("hid report", "usagepage");
   //hid_usage_val      = ini.readInt("hid report", "usage");
   //ButtonCount        = ini.readInt("hid report", "ButtonCount");
   //HatCount           = ini.readInt("hid report", "HatCount");
@@ -451,7 +450,6 @@ void setup() {
   fileSystem->setConfig(fileSystemConfig);
   fsOK = fileSystem->begin();
   //DBG_OUTPUT_PORT.println(fsOK ? F("Filesystem initialized.") : F("Filesystem init failed!"));
-  ini.init(fileSystem);
   setupINI();
   setupUSB(true);
 

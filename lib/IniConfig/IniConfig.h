@@ -16,12 +16,11 @@
 
 class IniConfig {
 public:
-  IniConfig();
-  void init(FS* sd);
+  IniConfig(FS* sd);
   bool file(const char* filepath);
   //void close();
   String read(const char* section, const char* key);
-  bool write(const char* section, const char* key, const char* value, bool closeAfterWrite=true);
+  bool write(const char* section, const char* key, const char* value);
   bool remove(const char* section, const char* key);
   bool removeSection(const char* section);
 
@@ -29,9 +28,9 @@ public:
   int readInt(const char* section, const char* key);
   float readfloat(const char* section, const char* key);
   
-  bool writeBool(const char* section, const char* key, const bool value, bool closeAfterWrite=true);
-  bool writeInt(const char* section, const char* key, const int value, bool closeAfterWrite=true);
-  bool writeFloat(const char* section, const char* key, const double value, bool closeAfterWrite=true);
+  bool writeBool(const char* section, const char* key, const bool value);
+  bool writeInt(const char* section, const char* key, const int value);
+  bool writeFloat(const char* section, const char* key, const double value);
 private:
     const char* _filepath;
     FS* _fileSystem;
