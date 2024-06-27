@@ -148,20 +148,21 @@ async function getHIDValues() {
   document.getElementById("hatcount").value = await response.text(); //values[2];  
 }
 
-async function updateHID() {
-  // fetch("settings/updatehid?"+
-  //       "usagepage="+ usagePage+
-  //       "&usage="+ usage+
-  //       "&axis="+ document.getElementById("axiscount").value+
-  //       "&buttons="+ document.getElementById("buttoncount").value+
-  //       "&hats="+ document.getElementById("hatcount").value
-  // );
-  await fetch("settings/updatehid?usagepage="+ usagePage);
-  await fetch("settings/updatehid?usage="+ usage);
-  await fetch("settings/updatehid?axis="+ document.getElementById("axiscount").value);
-  await fetch("settings/updatehid?hats="+ document.getElementById("hatcount").value);
-  await fetch("settings/updatehid?buttons="+ document.getElementById("buttoncount").value);
-  await fetch("settings/updatehid?restart=");
+function updateHID() {
+  fetch("settings/updatehid?"+
+        "usagepage="+ usagePage+
+        "&usage="+ usage+
+        "&axis="+ document.getElementById("axiscount").value+
+        "&buttons="+ document.getElementById("buttoncount").value+
+        "&hats="+ document.getElementById("hatcount").value+
+        "&restart="
+   );
+  //await fetch("settings/updatehid?usagepage="+ usagePage);
+  //await fetch("settings/updatehid?usage="+ usage);
+  //await fetch("settings/updatehid?axis="+ document.getElementById("axiscount").value);
+  //await fetch("settings/updatehid?hats="+ document.getElementById("hatcount").value);
+  //await fetch("settings/updatehid?buttons="+ document.getElementById("buttoncount").value);
+  //await fetch("settings/updatehid?restart=");
 }
 
 function populateUsagePage() {

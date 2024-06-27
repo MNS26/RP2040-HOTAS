@@ -584,6 +584,18 @@ void i2cResult() {
 }
 
 void updateHid() {
+  extern void writeSystemINI();
+  extern void readSystemINI();
+  if (server.hasArg("devicename")) {
+    String a = server.arg("devicename");
+    if (a.length()>0) {
+      DeviceName = a;
+    server.send(200);
+    } else {
+      server.send(200,"text/plain", DeviceName);
+    }
+  }
+  
   if (server.hasArg("usagepage")) {
     String a = server.arg("usagepage");
     if (a.length()) {
@@ -656,6 +668,8 @@ void updateHid() {
 
   if (server.hasArg("restart")) {
     server.send(200);
+    writeSystemINI();
+    readSystemINI();
     setupUSB(false);
   }
 }

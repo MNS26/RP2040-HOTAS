@@ -61,7 +61,8 @@ int report = 1;
 /*== LED ==*/
 Adafruit_NeoPixel pixel;
 
-bool enableKBM = 0;
+bool enableKeyboard = 0;
+bool enableMouse = 0;
 uint8_t DeviceCount;
 
 uint16_t hue;
@@ -94,7 +95,7 @@ uint8_t device_max_button_count = 79;
 uint8_t device_max_hat_count = 1;
 // linux actually sees 9 but wine (windows compatibility layer) only works up to 8
 uint8_t device_max_axis_count = 8;
-String deviceName[32];
+String DeviceName;
 uint32_t AxisResolution = 11;
 uint16_t AxisCount = 8;
 uint16_t ButtonCount = 65;
@@ -320,6 +321,32 @@ void progressCallBack(size_t currSize, size_t totalSize) {
 	  Serial.printf("CALLBACK:  Update process at %d of %d bytes...\n", currSize, totalSize);
 }
 
+void writeSystemINI() {
+    ini.open("/config/settings.ini");
+    ini.write(    "hid report", "DeviceName",    DeviceName.c_str());
+    ini.writeBool("hid report", "enableMouse",    enableMouse);
+    ini.writeBool("hid report", "enableKeyboard", enableKeyboard);
+    ini.writeInt( "hid report", "UsagePage",      hid_usage_page_val);
+    ini.writeInt( "hid report", "Usage",          hid_usage_val);
+    ini.writeInt( "hid report", "ButtonCount",    ButtonCount);
+    ini.writeInt( "hid report", "HatCount",       HatCount);
+    ini.writeInt( "hid report", "AxisCount",      AxisCount);
+    ini.writeInt( "hid report", "AxisResolution", AxisResolution);
+}
+
+void readSystemINI() {
+  ini.open("/config/settings.ini");
+  //memset(DeviceName,0,sizeof(DeviceName));
+  DeviceName = ini.read("hid report", "DeviceName");
+  hid_usage_page_val = ini.readInt( "hid report", "UsagePage");
+  hid_usage_val      = ini.readInt( "hid report", "Usage");
+  enableMouse        = ini.readBool("hid report", "enableMouse");
+  enableKeyboard     = ini.readBool("hid report", "enableKeyboard");
+  ButtonCount        = ini.readInt( "hid report", "ButtonCount");
+  HatCount           = ini.readInt( "hid report", "HatCount");
+  AxisCount          = ini.readInt( "hid report", "AxisCount");
+  AxisResolution     = ini.readInt( "hid report", "AxisResolution");
+}
 
 void setupINI() {
   if (!fileSystem->exists("/config"))
@@ -327,27 +354,18 @@ void setupINI() {
   if (!fileSystem->exists("/config/settings.ini")) {
     File file = fileSystem->open("/config/settings.ini","w");
     file.close();
-
-    ini.file("/config/settings.ini");
+    ini.open("/config/settings.ini");
     ini.write(    "hid report", "DeviceName",    "RP2040-HID");
     ini.writeBool("hid report", "enableMouse",    false);
     ini.writeBool("hid report", "enableKeyboard", false);
-    ini.writeInt( "hid report", "page",           HID_USAGE_PAGE_DESKTOP);
-    ini.writeInt( "hid report", "usage",          HID_USAGE_DESKTOP_JOYSTICK);
-    ini.writeInt( "hid report", "ButtonCount",    0);
-    ini.writeInt( "hid report", "HatCount",       0);
-    ini.writeInt( "hid report", "AxisCount",      0);
-    ini.writeInt( "hid report", "AxisResolution", 0 );
+    ini.writeInt( "hid report", "UsagePage",      HID_USAGE_PAGE_DESKTOP);
+    ini.writeInt( "hid report", "Usage",          HID_USAGE_DESKTOP_JOYSTICK);
+    ini.writeInt( "hid report", "ButtonCount",    64);
+    ini.writeInt( "hid report", "HatCount",       1);
+    ini.writeInt( "hid report", "AxisCount",      8);
+    ini.writeInt( "hid report", "AxisResolution", 11);
   }
-
-  ini.file("/config/settings.ini");
-  *deviceName = ini.read("hid report", "DeviceName");
-  hid_usage_page_val = ini.readInt("hid report", "page");
-  hid_usage_val      = ini.readInt("hid report", "usage");
-  ButtonCount        = ini.readInt("hid report", "ButtonCount");
-  HatCount           = ini.readInt("hid report", "HatCount");
-  AxisCount          = ini.readInt("hid report", "AxisCount");
-  AxisResolution     = ini.readInt("hid report", "AxisResolution");
+  readSystemINI();
 }
 
 void setupUSB(bool begin) {
@@ -393,7 +411,7 @@ void setupUSB(bool begin) {
 
   TinyUSBDevice.setID(VID,PID);
   TinyUSBDevice.setManufacturerDescriptor("Raspberry Pi");
-  TinyUSBDevice.setProductDescriptor(deviceName->c_str());
+  TinyUSBDevice.setProductDescriptor(DeviceName.c_str());
 
   // start the USB device
     TinyUSBDevice.addInterface(SerialTinyUSB);
@@ -411,14 +429,33 @@ void setupUSB(bool begin) {
       hid_joystick.begin();
   }
 
-  if (enableKBM) {
-    // HID report descriptor using TinyUSB's template
-    uint8_t desc_hid_report[] = {
-      TUD_HID_REPORT_DESC_KEYBOARD( VA_HID_REPORT_ID(1) ),
-      TUD_HID_REPORT_DESC_MOUSE   ( VA_HID_REPORT_ID(2) ),
-    };
-    hid_kbm.setStringDescriptor("TinyUSB Keyboard/Mouse");
-    hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
+  // HID report descriptor using TinyUSB's template
+  if(enableMouse || enableKeyboard) {
+    if(enableMouse && enableKeyboard) {
+      uint8_t desc_hid_report[] = {
+        TUD_HID_REPORT_DESC_KEYBOARD( VA_HID_REPORT_ID(1) ),
+        TUD_HID_REPORT_DESC_MOUSE   ( VA_HID_REPORT_ID(2) ),
+      };
+      char name = DeviceName.concat(" Mouse/Keyboard");
+      hid_kbm.setStringDescriptor(&name);
+      hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
+    }
+    if (enableMouse && !enableKeyboard) {
+      uint8_t desc_hid_report[] = {
+        TUD_HID_REPORT_DESC_MOUSE   ( ),
+      };
+      char name = DeviceName.concat(" Mouse");
+      hid_kbm.setStringDescriptor(&name);
+      hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
+    }
+    if (!enableMouse && enableKeyboard) {
+      uint8_t desc_hid_report[] = {
+        TUD_HID_REPORT_DESC_KEYBOARD( ),
+      };
+      char name = DeviceName.concat(" Keyboard");
+      hid_kbm.setStringDescriptor(&name);
+      hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
+    }
     if (hid_kbm.isValid())
       TinyUSBDevice.addInterface(hid_kbm);
     else

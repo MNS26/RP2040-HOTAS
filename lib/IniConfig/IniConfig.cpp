@@ -3,13 +3,13 @@
 IniConfig::IniConfig(FS* sd) : _fileSystem(sd), _filepath(nullptr){}
 
 // TODO: rework this one
-bool IniConfig::file(const char *filepath) { 
+void IniConfig::open(const char *filepath) { 
   _filepath = filepath;
-  return true;
 }
 
 String IniConfig::read(const char *section, const char *key) {
-  File file = _fileSystem->open(_filepath, "r");
+  assert(_fileSystem);
+  File file = _fileSystem->open(_filepath,"r");
   if (!file) {
     return String("");
   }
@@ -31,11 +31,11 @@ String IniConfig::read(const char *section, const char *key) {
 
 bool IniConfig::write(const char *section, const char *key, const char *value) {
   assert(_fileSystem);
-  File file = _fileSystem->open(_filepath, "r+");
+  File file = _fileSystem->open(_filepath,"r+");
   if (!file) {
     return false;
   }
-//  file.seek(0);
+  file.seek(0);
   String fileContent = file.readString();
   file.seek(0);
   int sectionStart, sectionEnd;
@@ -58,11 +58,11 @@ bool IniConfig::write(const char *section, const char *key, const char *value) {
 
 bool IniConfig::remove(const char *section, const char *key) {
   assert(_fileSystem);
-  File file = _fileSystem->open(_filepath, "r+");
+  File file = _fileSystem->open(_filepath,"r+");
   if (!file) {
     return false;
   }
-//  file.seek(0);
+  file.seek(0);
   String fileContent = file.readString();
   file.seek(0);
   int sectionStart, sectionEnd;
@@ -83,11 +83,11 @@ bool IniConfig::remove(const char *section, const char *key) {
 
 bool IniConfig::removeSection(const char *section) {
   assert(_fileSystem);
-  File file = _fileSystem->open(_filepath, "r+");
+  File file = _fileSystem->open(_filepath,"r+");
   if (!file) {
     return false;
   }
-//  file.seek(0);
+  file.seek(0);
   String fileContent = file.readString();
   file.seek(0);
   int sectionStart, sectionEnd;
@@ -108,7 +108,7 @@ int IniConfig::readInt(const char *section, const char *key) {
   return read(section,key).toInt();
 }
 
-float IniConfig::readfloat(const char *section, const char *key) {
+float IniConfig::readFloat(const char *section, const char *key) {
   return read(section,key).toFloat();
 }
 
@@ -129,13 +129,15 @@ bool IniConfig::writeFloat(const char *section, const char *key,
 
 bool IniConfig::findSection(const char* section, String& fileContent, int& sectionStart, int& sectionEnd) {
   int pos = 0;
+  String lcSection = toLowerCase(String(section));
   while (pos < fileContent.length()) {
     int lineEnd = fileContent.indexOf('\n', pos);
     if (lineEnd == -1) lineEnd = fileContent.length();
     String line = fileContent.substring(pos, lineEnd);
+    line.toLowerCase();
     line.trim();
     if (line.startsWith("[") && line.endsWith("]")) {
-      if (line.substring(1, line.length() - 1).equals(section)) {
+      if (toLowerCase(line.substring(1, line.length() - 1)).equals(lcSection)) {
         sectionStart = pos;
         pos = lineEnd + 1;
         while (pos < fileContent.length() && (!fileContent.substring(pos, pos + 1).equals("[") || !fileContent.substring(pos, pos + 1).equals("\n"))) {
@@ -153,12 +155,14 @@ bool IniConfig::findSection(const char* section, String& fileContent, int& secti
 
 bool IniConfig::findKey(const char* key, const String& sectionContent, int& keyStart, int& keyEnd) {
   int pos = 0;
+  String lcKey = toLowerCase(String(key));
   while (pos < sectionContent.length()) {
-    int lineEnd = sectionContent.indexOf('\n', pos);
+    int lineEnd = sectionContent.indexOf('\n', pos); // get end of line pos
     if (lineEnd == -1) lineEnd = sectionContent.length();
-    String line = sectionContent.substring(pos, lineEnd);
+    String line = sectionContent.substring(pos, lineEnd); // get current line
     line.trim();
-    if (line.startsWith(key) && line.indexOf('=') != -1) {
+    line.toLowerCase();
+    if (line.startsWith(lcKey) && line.charAt(strlen(lcKey.c_str())) == '=') {
       keyStart = pos;
       keyEnd = lineEnd;
       return true;
@@ -166,4 +170,10 @@ bool IniConfig::findKey(const char* key, const String& sectionContent, int& keyS
     pos = lineEnd + 1;
   }
   return false;
- }
+}
+
+String IniConfig::toLowerCase(const String& str) {
+  String lowerStr = str;
+  lowerStr.toLowerCase();
+  return lowerStr;
+}

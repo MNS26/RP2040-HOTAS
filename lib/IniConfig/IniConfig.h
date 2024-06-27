@@ -17,8 +17,8 @@
 class IniConfig {
 public:
   IniConfig(FS* sd);
-  bool file(const char* filepath);
-  //void close();
+  void open(const char* filepath);
+
   String read(const char* section, const char* key);
   bool write(const char* section, const char* key, const char* value);
   bool remove(const char* section, const char* key);
@@ -26,7 +26,7 @@ public:
 
   bool readBool(const char* section, const char* key);
   int readInt(const char* section, const char* key);
-  float readfloat(const char* section, const char* key);
+  float readFloat(const char* section, const char* key);
   
   bool writeBool(const char* section, const char* key, const bool value);
   bool writeInt(const char* section, const char* key, const int value);
@@ -36,5 +36,6 @@ private:
     FS* _fileSystem;
     bool findSection(const char* section, String& fileContent, int& sectionStart, int& sectionEnd);
     bool findKey(const char* key, const String& sectionContent, int& keyStart, int& keyEnd);
+    String toLowerCase(const String& str);
 };
 #endif
