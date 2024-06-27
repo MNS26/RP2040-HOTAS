@@ -94,7 +94,7 @@ uint8_t device_max_button_count = 79;
 uint8_t device_max_hat_count = 1;
 // linux actually sees 9 but wine (windows compatibility layer) only works up to 8
 uint8_t device_max_axis_count = 8;
-String deviceName[24];
+String deviceName[32];
 uint32_t AxisResolution = 11;
 uint16_t AxisCount = 8;
 uint16_t ButtonCount = 65;
@@ -325,31 +325,29 @@ void setupINI() {
   if (!fileSystem->exists("/config"))
     fileSystem->mkdir("/config");
   if (!fileSystem->exists("/config/settings.ini")) {
-    //File file = fileSystem->open("/config/settings.ini","w");
-    //file.write("");
-    //file.close();
+    File file = fileSystem->open("/config/settings.ini","w");
+    file.close();
 
     ini.file("/config/settings.ini");
     ini.write(    "hid report", "DeviceName",    "RP2040-HID");
     ini.writeBool("hid report", "enableMouse",    false);
     ini.writeBool("hid report", "enableKeyboard", false);
-    ini.writeInt( "hid report", "usagepage",      0);
-    ini.writeInt( "hid report", "usage",          0);
+    ini.writeInt( "hid report", "page",           HID_USAGE_PAGE_DESKTOP);
+    ini.writeInt( "hid report", "usage",          HID_USAGE_DESKTOP_JOYSTICK);
     ini.writeInt( "hid report", "ButtonCount",    0);
     ini.writeInt( "hid report", "HatCount",       0);
     ini.writeInt( "hid report", "AxisCount",      0);
     ini.writeInt( "hid report", "AxisResolution", 0 );
   }
 
-  //*deviceName = ini.read("hid report", "DeviceName");
-  //deviceName->trim();
-  hid_usage_page_val = ini.readInt("hid report", "usagepage");
-  //hid_usage_val      = ini.readInt("hid report", "usage");
-  //ButtonCount        = ini.readInt("hid report", "ButtonCount");
-  //HatCount           = ini.readInt("hid report", "HatCount");
-  //AxisCount          = ini.readInt("hid report", "AxisCount");
-  //AxisResolution     = ini.readInt("hid report", "AxisResolution");
-
+  ini.file("/config/settings.ini");
+  *deviceName = ini.read("hid report", "DeviceName");
+  hid_usage_page_val = ini.readInt("hid report", "page");
+  hid_usage_val      = ini.readInt("hid report", "usage");
+  ButtonCount        = ini.readInt("hid report", "ButtonCount");
+  HatCount           = ini.readInt("hid report", "HatCount");
+  AxisCount          = ini.readInt("hid report", "AxisCount");
+  AxisResolution     = ini.readInt("hid report", "AxisResolution");
 }
 
 void setupUSB(bool begin) {

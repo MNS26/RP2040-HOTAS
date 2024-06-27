@@ -1,6 +1,6 @@
 #include "IniConfig.h"
 
-IniConfig::IniConfig(FS* sd) : _fileSystem(_fileSystem), _filepath(nullptr){}
+IniConfig::IniConfig(FS* sd) : _fileSystem(sd), _filepath(nullptr){}
 
 // TODO: rework this one
 bool IniConfig::file(const char *filepath) { 
@@ -30,11 +30,14 @@ String IniConfig::read(const char *section, const char *key) {
 }
 
 bool IniConfig::write(const char *section, const char *key, const char *value) {
-  File file = _fileSystem->open(_filepath, "rw");
+  assert(_fileSystem);
+  File file = _fileSystem->open(_filepath, "r+");
   if (!file) {
     return false;
   }
+//  file.seek(0);
   String fileContent = file.readString();
+  file.seek(0);
   int sectionStart, sectionEnd;
   if (!findSection(section, fileContent, sectionStart, sectionEnd)) {
     fileContent += "\n[" + String(section) + "]\n" + String(key) + "=" + String(value) + "\n";
@@ -54,11 +57,14 @@ bool IniConfig::write(const char *section, const char *key, const char *value) {
 }
 
 bool IniConfig::remove(const char *section, const char *key) {
-  File file = _fileSystem->open(_filepath, "rw");
+  assert(_fileSystem);
+  File file = _fileSystem->open(_filepath, "r+");
   if (!file) {
     return false;
   }
+//  file.seek(0);
   String fileContent = file.readString();
+  file.seek(0);
   int sectionStart, sectionEnd;
   if (!findSection(section, fileContent, sectionStart, sectionEnd)) {
     return false;
@@ -76,11 +82,14 @@ bool IniConfig::remove(const char *section, const char *key) {
 }
 
 bool IniConfig::removeSection(const char *section) {
-  File file = _fileSystem->open(_filepath, "rw");
+  assert(_fileSystem);
+  File file = _fileSystem->open(_filepath, "r+");
   if (!file) {
     return false;
   }
+//  file.seek(0);
   String fileContent = file.readString();
+  file.seek(0);
   int sectionStart, sectionEnd;
   if (!findSection(section, fileContent, sectionStart, sectionEnd)) {
     return false;
