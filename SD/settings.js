@@ -52,9 +52,13 @@ function onBodyLoad() {
   getHIDValues();
   onListSelect();
   populateUsagePage();
+  //document.getElementById("devicename").addEventListener("change", );
+  //document.getElementById("axiscount").addEventListener("change", updateAxis);
+  //document.getElementById("hatcount").addEventListener("change", updateHats);
+  //document.getElementById("buttoncount").addEventListener("change", updateButtons);
   document.getElementById("UsagePageType").addEventListener("change", UsagePageTypeChanged);
   document.getElementById("UsagePageSubType").addEventListener("change", UsagePageSubTypeChanged);
-  //populateMarkers();
+  //populateMarkers(); axiscount
 }
 
 
@@ -139,7 +143,12 @@ async function getHIDValues() {
   //document.getElementById("axiscount").value = response.text();  
   response = await fetch("settings/updatehid?usage=");
   //document.getElementById("axiscount").value = response.text();  
-
+  response = await fetch("settings/updatehid?devicename=");
+  document.getElementById("devicename").value = await response.text();
+  response = await fetch("settings/updatehid?adcresolution=");
+  document.getElementById("adcresolution").value = await response.text();
+  response = await fetch("settings/updatehid?axisresolution=");
+  document.getElementById("axisresolution").value = await response.text();
   response = await fetch("settings/updatehid?axis=");
   document.getElementById("axiscount").value = await response.text(); // values[0];  
   response = await fetch("settings/updatehid?buttons=");
@@ -150,7 +159,10 @@ async function getHIDValues() {
 
 function updateHID() {
   fetch("settings/updatehid?"+
-        "usagepage="+ usagePage+
+        "devicename="+document.getElementById("devicename").value+
+        "&axisresolution="+document.getElementById("axisresolution").value+
+        "&adcresolution="+document.getElementById("adcresolution").value+
+        "&usagepage="+ usagePage+
         "&usage="+ usage+
         "&axis="+ document.getElementById("axiscount").value+
         "&buttons="+ document.getElementById("buttoncount").value+

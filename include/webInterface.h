@@ -595,7 +595,29 @@ void updateHid() {
       server.send(200,"text/plain", DeviceName);
     }
   }
-  
+
+  if (server.hasArg("adcresolution")) {
+    String a = server.arg("adcresolution");
+    if (a.length()) {
+      if (a.toInt()>0)
+        ADCResolution = a.toInt();
+      server.send(200);
+    } else {
+      server.send(200,"text/plain",(String)ADCResolution);
+    }
+  }
+
+  if (server.hasArg("axisresolution")) {
+    String a = server.arg("axisresolution");
+    if (a.length()) {
+      if (a.toInt()>0)
+        AxisResolution = a.toInt();
+      server.send(200);
+    } else {
+      server.send(200,"text/plain",(String)AxisResolution);
+    }
+  }
+
   if (server.hasArg("usagepage")) {
     String a = server.arg("usagepage");
     if (a.length()) {
@@ -669,7 +691,6 @@ void updateHid() {
   if (server.hasArg("restart")) {
     server.send(200);
     writeSystemINI();
-    readSystemINI();
     setupUSB(false);
   }
 }

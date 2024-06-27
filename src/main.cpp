@@ -96,11 +96,12 @@ uint8_t device_max_hat_count = 1;
 // linux actually sees 9 but wine (windows compatibility layer) only works up to 8
 uint8_t device_max_axis_count = 8;
 String DeviceName;
-uint32_t AxisResolution = 11;
+uint8_t AxisResolution = 11;
+uint8_t ADCResolutionCurrent;
+uint8_t ADCResolution = 11;
 uint16_t AxisCount = 8;
 uint16_t ButtonCount = 65;
 uint16_t HatCount = 1;
-
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
 uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
 
@@ -332,11 +333,11 @@ void writeSystemINI() {
     ini.writeInt( "hid report", "HatCount",       HatCount);
     ini.writeInt( "hid report", "AxisCount",      AxisCount);
     ini.writeInt( "hid report", "AxisResolution", AxisResolution);
+    ini.writeInt( "hid report", "ADCResolution",  ADCResolution);
 }
 
 void readSystemINI() {
   ini.open("/config/settings.ini");
-  //memset(DeviceName,0,sizeof(DeviceName));
   DeviceName = ini.read("hid report", "DeviceName");
   hid_usage_page_val = ini.readInt( "hid report", "UsagePage");
   hid_usage_val      = ini.readInt( "hid report", "Usage");
@@ -346,6 +347,7 @@ void readSystemINI() {
   HatCount           = ini.readInt( "hid report", "HatCount");
   AxisCount          = ini.readInt( "hid report", "AxisCount");
   AxisResolution     = ini.readInt( "hid report", "AxisResolution");
+  ADCResolution      = ini.readInt( "hid report", "ADCResolution");
 }
 
 void setupINI() {
@@ -364,6 +366,8 @@ void setupINI() {
     ini.writeInt( "hid report", "HatCount",       1);
     ini.writeInt( "hid report", "AxisCount",      8);
     ini.writeInt( "hid report", "AxisResolution", 11);
+    ini.writeInt( "hid report", "ADCResolution",  11);
+
   }
   readSystemINI();
 }
@@ -624,8 +628,8 @@ void setup1()
 #endif
   Wire.setTimeout(100);
   Wire.begin();
-
-  analogReadResolution(11);
+  ADCResolutionCurrent = ADCResolution;
+  analogReadResolution(ADCResolution);
   //setLedI2cSlave(0,0x21,0);
   //setLedI2cSlave(1,0x21,0);
   //setLedI2cSlave(2,0x21,0);
@@ -641,7 +645,10 @@ void setup1()
 
 void loop1()
 {
-
+  if (ADCResolutionCurrent != ADCResolution) {
+    ADCResolutionCurrent = ADCResolution;
+    analogReadResolution(ADCResolution);
+  }
   if (millis() - nextScan > 100) {
       for (int addr = 8; addr < (1 << 7); ++addr) {
 
@@ -775,10 +782,10 @@ if (readyToUpdate[1]== false) {
       default: set_hat(reports[1], 1, 0, 0b0000); break;
     }
   
-    set_axis(reports[1], 1, 0, map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 0), 0, 1023, 0, 2047));
-    set_axis(reports[1], 1, 1, map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 0), 0, 1023, 0, 2047));
-    set_axis(reports[1], 1, 2, map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, 2047));  //yaw
-    set_axis(reports[1], 1, 3, map_clamped<uint16_t>(analogRead(A1), 300, 1700, 2047, 0));
+    set_axis(reports[1], 1, 0, map_clamped<uint16_t>(deadzone<uint16_t>(state.x,512, 0), 0, 1023, 0, (1<<AxisResolution) -1));
+    set_axis(reports[1], 1, 1, map_clamped<uint16_t>(deadzone<uint16_t>(state.y,512, 0), 0, 1023, 0, (1<<AxisResolution) -1));
+    set_axis(reports[1], 1, 2, map_clamped<uint16_t>(deadzone<uint16_t>(state.z,512, 50), 0, 1023, 0, (1<<AxisResolution) -1));  //yaw
+    set_axis(reports[1], 1, 3, map_clamped<uint16_t>(analogRead(A1), 300, (1<<ADCResolution) -1 - 347, (1<<AxisResolution) -1, 0));
 
     set_button(reports[1], 1, 0, state.trigger_stage_1);
     set_button(reports[1], 1, 1, state.button_fire);

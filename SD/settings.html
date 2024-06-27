@@ -123,7 +123,7 @@
   </datalist>
   <br>
   
-  <input type="range"  name="E" id="AxisCount" min=0 max=9 step=1 list="ListCountAxis">
+  <input type="range" id="AxisCount" min=0 max=9 step=1 list="ListCountAxis">
   <br>
   <input id="HatCount" type="range" min=0 max=4 step=1 list="ListCountAxis">
   <br>
@@ -140,11 +140,14 @@
   </select>
   <br>
   
-  <p> test: <input type = "text" id = "favourite" size = "3" onchange=""></p>
-  <p> Axis count: <input type = "text" id = "axiscount" size = "3" onchange="updateAxis()"></p>
-  <p> Button count: <input type = "text" id = "buttoncount" size = "3" onchange="updateButtons()"></p>
-  <p> Hat count: <input type = "text" id = "hatcount" size = "3" onchange="updateHats()"></p>
-  <button type="button" onclick="updateHID()">Update HID/Restart</button>
+  <p> test: <input type="text" id="favourite" size="3" onchange=""></p>
+  <p> Device name: <input type="text" id="devicename" size="20" onchange=""></p>
+  <p> ADC resolution: <input type="text" id="adcresolution" size="4" onchange=""></p>
+  <p> Axis resolution: <input type="text" id="axisresolution" size="4" onchange=""></p>
+  <p> Axis count: <input type="text" id="axiscount" size="3" onchange=""></p>
+  <p> Button count: <input type="text" id="buttoncount" size="3" onchange=""></p>
+  <p> Hat count: <input type="text" id="hatcount" size="3" onchange=""></p>
+  <button type="button" onclick="updateHID()">Save & Restart HID</button>
   <script src="settings.js"></script>
 </body>
 </html>
