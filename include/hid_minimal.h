@@ -188,23 +188,6 @@ enum {
   HID_USAGE_DESKTOP_TABLET_PC_SYSTEM      = 0x09,
 };
 
-//#define HID_USAGE_PAGE(x)    0x5, x
-//#define HID_USAGE(x)         0x9, x
-//#define HID_COLLECTION(x)    0xa1, x
-//#define HID_COLLECTION_END   0xc0
-//#define HID_REPORT_COUNT(x)  0x95, x
-//#define HID_REPORT_SIZE(x)   0x75, x
-//#define HID_LOGICAL_MIN(x)   0x15, x
-//#define HID_LOGICAL_MAX(x)   0x26, (x & 0xff), (x >> 8)
-//#define HID_PHYSICAL_MIN(x)  0x35, x
-//#define HID_PHYSICAL_MAX(x)  0x46, (x & 0xff), (x >> 8)
-//#define HID_INPUT(x)         0x81, x
-//#define HID_PUSH             0xa4
-//#define HID_POP              0xb4
-//#define HID_USAGE_MIN(x)     0x19, x
-//#define HID_USAGE_MAX(x)     0x29, x
-//#define HID_REPORT_ID(x)     0x85, x
-
 #define HID_DATA             (0<<0)
 #define HID_CONSTANT         (1<<0) //1
 #define HID_ARRAY            (0<<1)

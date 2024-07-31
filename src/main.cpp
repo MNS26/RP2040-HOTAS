@@ -15,13 +15,17 @@
 #include "common/tusb_common.h"
 #include "hid.h"
 #include "HID_descriptor.h"
-#include "HID_Report.h"
+//#include <U8g2lib.h>
+
+//#include "HID_Report.h"
 #include <Adafruit_TinyUSB.h>
 #include <Adafruit_NeoPixel.h>
 #include <math.h>
 #include "CRC.h"
 #include "Wire.h"
+#include "SPI.h"
 
+//U8G2_ST7528_ERC16064_1_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 255, /* dc=*/ 255, /* reset=*/ 255);
 
 
 // Select the FileSystem by uncommenting one of the lines below
@@ -40,8 +44,10 @@ LittleFSConfig fileSystemConfig = LittleFSConfig();
 #elif defined USE_SDFS
 #include <SDFS.h>
 const char* fsName = "SDFS";
+
 FS* fileSystem = &SDFS;
 SDFSConfig fileSystemConfig = SDFSConfig();
+
 // fileSystemConfig.setCSPin(chipSelectPin);
 #else
 #error Please select a filesystem first by uncommenting one of the "-D USE_xxx" lines in the usb.ini file located in "config" folder.
@@ -49,6 +55,22 @@ SDFSConfig fileSystemConfig = SDFSConfig();
 
 #include "IniConfig.h"
 IniConfig ini(&SDFS);
+
+typedef struct {
+  uint8_t buttons;
+  uint8_t hats;
+  uint8_t axis;
+
+} input_id;
+
+
+typedef union TU_ATTR_PACKED{
+  struct {
+    uint8_t type:2;
+    uint8_t id:6;
+  };
+  uint8_t option;
+}input_type;
 
 bool LED_on;
 bool LED_breathe;
@@ -61,29 +83,25 @@ int report = 1;
 /*== LED ==*/
 Adafruit_NeoPixel pixel;
 
-bool enableKeyboard = 0;
-bool enableMouse = 0;
-uint8_t DeviceCount;
+input_id inputs_id[MAX_REPORT_ID];
 
+
+bool enableKeyboard = 1;
+bool enableMouse = 1;
+bool enableMsc = 1;
+uint8_t IdCount;
+uint8_t MaxDeviceCount = MAX_REPORT_ID; 
 uint16_t hue;
 uint32_t nextScan = millis();
 uint32_t nextScanPrint = millis();
 uint usb_report_size;
 uint8_t usb_report[MAX_HID_DESCRIPTOR_SIZE];
 
-typedef struct {
-  uint8_t buttons;
-  uint8_t hats;
-  uint8_t axis;
-
-} input_id;
-input_id inputs_id[MAX_REPORT_ID]; 
-
 uint16_t axis_start[MAX_REPORT_ID];
 uint16_t button_start[MAX_REPORT_ID];
 uint16_t hat_start[MAX_REPORT_ID];
 uint16_t total_bits[MAX_REPORT_ID];
-uint16_t largest_bits;
+//uint16_t largest_bits;
 
 volatile uint8_t reports[MAX_REPORT_ID][64];
 uint8_t old_reports[MAX_REPORT_ID][64];
@@ -105,14 +123,18 @@ uint16_t HatCount = 1;
 uint8_t hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
 uint8_t hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
 
-Adafruit_USBD_HID hid_joystick;
-Adafruit_USBD_HID hid_kbm;
+uint8_t usedIds[128];
+uint8_t slaveCount;
+
+Adafruit_USBD_HID usb_hid;
+//Adafruit_USBD_HID hid_kbm;
+Adafruit_USBD_MSC usb_msc;
 
 byte i2cIDs[128];
 
 
-void setupUSB(bool begin);
-
+void setupDescripor();
+void setUSB(bool);
 static bool fsOK;
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W //todo add more wifi boards (eg esp32)
 #include "webInterface.h"
@@ -150,14 +172,34 @@ uint32_t rainbow(uint16_t _hue, uint8_t saturation, uint8_t brightness, bool gam
 
 
 // this is here since the joystick still works and doesnt need to be replaced (it will be gutted after throttle is properly done)
-
+//#define USE_NEW
+//#define USE_STD
 #define X52_BUSY_WAIT 0
-#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 0
-#include <x52_hotas.h>
+#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 1
+#ifndef USE_NEW
+#include "x52_pro.h"
+#include "x52_util.h"
+#else
+#ifdef USE_STD
+//#include "new_x52_std.h"
+//#include "new_x52_util.h"
+#else
+#include "new_x52_pro.h"
+#include "new_x52_util.h"
+#endif
+#endif
 #define MAX_UPDATES_PER_SECOND 300
 
 // TODO: Choose your favorite digital pins on your board.
-x52::pro::JoystickClient<D22, D21, D26, D20> joystick_client;
+#ifndef USE_NEW
+x52::pro::FakeThrottle<D20, D26, D21, D22> fakeThrottle;
+#else
+#ifdef USE_STD
+FakeStdThrottle fakeThrottle(pio0, D20, D26, D21, D22);
+#else
+FakeProThrottle fakeThrottle(pio0, D20, D26, D21, D22);
+#endif
+#endif
 //x52::pro::JoystickConfig cfg;
 //x52::pro::JoystickState state;
 
@@ -172,6 +214,7 @@ x52::pro::JoystickClient<D22, D21, D26, D20> joystick_client;
 // Return zero will cause the stack to STALL request
 uint16_t get_report_callback (uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
 {
+  memset(buffer,0,reqlen);
   Serial.print("get_report type: ");
   Serial.println((int)report_type);
   Serial.print("get_report id: ");
@@ -183,7 +226,16 @@ uint16_t get_report_callback (uint8_t report_id, hid_report_type_t report_type, 
     break;
 
     case (hid_report_type_t)HID_REPORT_TYPE_INPUT:
-    case (hid_report_type_t)HID_REPORT_TYPE_FEATURE:	
+    case (hid_report_type_t)HID_REPORT_TYPE_FEATURE:
+    if (report_id < 1) {
+      buffer[0] = IdCount;
+    } else if (report_id > 0 && report_id <= MAX_REPORT_ID) {
+      buffer[0] = inputs_id[report_id].buttons;
+      buffer[1] = inputs_id[report_id].hats;  
+      buffer[2] = inputs_id[report_id].axis;
+      buffer[3] = AxisResolution;
+    } else {break;}
+    
     return reqlen;
   }
   return 0;
@@ -206,8 +258,59 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
     break;
 
     case HID_REPORT_TYPE_FEATURE:
+
     break;
   }
+}
+
+
+//--------------------------------------------------------------------+
+// SD Card
+//--------------------------------------------------------------------+
+
+int32_t msc_read_cb (uint32_t lba, void* buffer, uint32_t bufsize)
+{
+  (void) bufsize;
+  bool rc=false;
+#if SD_FAT_VERSION >= 20000
+//  rc = sd->card()->readSectors(lba, (uint8_t*) buffer, bufsize/512);
+#else
+  rc = sd->card()->readBlocks(lba, (uint8_t*) buffer, bufsize/512);
+#endif
+
+  return rc ? bufsize : -1;
+}
+
+// Callback invoked when received WRITE10 command.
+// Process data in buffer to disk's storage and 
+// return number of written bytes (must be multiple of block size)
+int32_t msc_write_cb (uint32_t lba, uint8_t* buffer, uint32_t bufsize)
+{
+  bool rc=false;
+
+#if SD_FAT_VERSION >= 20000
+//  rc = sd->card()->writeSectors(lba, buffer, bufsize/512);
+#else
+  rc = sd->card()->writeBlocks(lba, buffer, bufsize/512);
+#endif
+
+  return rc ? bufsize : -1;
+}
+
+// Callback invoked when WRITE10 command is completed (status received and accepted by host).
+// used to flush any pending cache.
+void msc_flush_cb (void)
+{
+#if SD_FAT_VERSION >= 20000
+//  sd->card()->syncDevice();
+#else
+  sd->card()->syncBlocks();
+#endif
+
+  // clear file system's cache to force refresh
+  //sd->cacheClear();
+
+//  sd_changed = true;
 }
 
 
@@ -327,6 +430,7 @@ void writeSystemINI() {
     ini.write(    "hid report", "DeviceName",    DeviceName.c_str());
     ini.writeBool("hid report", "enableMouse",    enableMouse);
     ini.writeBool("hid report", "enableKeyboard", enableKeyboard);
+    ini.writeBool("hid report", "enableMsc",      enableMsc);
     ini.writeInt( "hid report", "UsagePage",      hid_usage_page_val);
     ini.writeInt( "hid report", "Usage",          hid_usage_val);
     ini.writeInt( "hid report", "ButtonCount",    ButtonCount);
@@ -338,11 +442,12 @@ void writeSystemINI() {
 
 void readSystemINI() {
   ini.open("/config/settings.ini");
-  DeviceName = ini.read("hid report", "DeviceName");
+  DeviceName         = ini.read("hid report", "DeviceName");
   hid_usage_page_val = ini.readInt( "hid report", "UsagePage");
   hid_usage_val      = ini.readInt( "hid report", "Usage");
   enableMouse        = ini.readBool("hid report", "enableMouse");
   enableKeyboard     = ini.readBool("hid report", "enableKeyboard");
+  enableMsc          = ini.readBool("hid report", "enableMsc");
   ButtonCount        = ini.readInt( "hid report", "ButtonCount");
   HatCount           = ini.readInt( "hid report", "HatCount");
   AxisCount          = ini.readInt( "hid report", "AxisCount");
@@ -350,29 +455,57 @@ void readSystemINI() {
   ADCResolution      = ini.readInt( "hid report", "ADCResolution");
 }
 
+void setupSD() {
+  ////////////////////////////////
+  // FILESYSTEM INIT
+  fileSystemConfig.setCSPin(17);
+  fileSystemConfig.setSPISpeed(50*MHZ);
+  fileSystemConfig.setAutoFormat(false);
+  fileSystem->setConfig(fileSystemConfig);
+  fsOK = fileSystem->begin();
+  //DBG_OUTPUT_PORT.println(fsOK ? F("Filesystem initialized.") : F("Filesystem init failed!"));
+}
+
+void setupMSC () {
+  usb_msc.setMaxLun(1);
+  FSInfo64 fs_info;
+  fileSystem->info64(fs_info);
+  usb_msc.setID("test1", "test2", "0.0");
+  usb_msc.setCapacity(fs_info.totalBytes/fs_info.blockSize, fs_info.blockSize);
+  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb);
+  usb_msc.setUnitReady(true);
+}
+
+
 void setupINI() {
-  if (!fileSystem->exists("/config"))
-    fileSystem->mkdir("/config");
   if (!fileSystem->exists("/config/settings.ini")) {
     File file = fileSystem->open("/config/settings.ini","w");
     file.close();
-    ini.open("/config/settings.ini");
-    ini.write(    "hid report", "DeviceName",    "RP2040-HID");
-    ini.writeBool("hid report", "enableMouse",    false);
-    ini.writeBool("hid report", "enableKeyboard", false);
-    ini.writeInt( "hid report", "UsagePage",      HID_USAGE_PAGE_DESKTOP);
-    ini.writeInt( "hid report", "Usage",          HID_USAGE_DESKTOP_JOYSTICK);
-    ini.writeInt( "hid report", "ButtonCount",    64);
-    ini.writeInt( "hid report", "HatCount",       1);
-    ini.writeInt( "hid report", "AxisCount",      8);
-    ini.writeInt( "hid report", "AxisResolution", 11);
-    ini.writeInt( "hid report", "ADCResolution",  11);
-
+    DeviceName= "RP2040-HID";
+    enableMouse= false;
+    enableKeyboard=false;
+    hid_usage_page_val= HID_USAGE_PAGE_DESKTOP;
+    hid_usage_val= HID_USAGE_DESKTOP_JOYSTICK;
+    ButtonCount= 64;
+    HatCount= 1;
+    AxisCount= 8;
+    AxisResolution= 11;
+    ADCResolution= 11;
+    writeSystemINI();
+  } else {
+    readSystemINI();
   }
-  readSystemINI();
 }
 
-void setupUSB(bool begin) {
+void setupDescripor() {
+  uint16_t maxBuffSize = MAX_HID_DESCRIPTOR_SIZE;
+  if (enableMouse)
+    maxBuffSize -= 79;
+//    MaxDeviceCount -= 1;
+  if (enableKeyboard)
+    maxBuffSize -= 67;
+//    MaxDeviceCount -= 1;
+
   // reset the connection
   memset(inputs_id, 0, sizeof(inputs_id));
   memset(usb_report, 0, sizeof(usb_report));
@@ -381,8 +514,12 @@ void setupUSB(bool begin) {
   memset(axis_start,0,sizeof(axis_start));
   memset(total_bits,0,sizeof(total_bits));
   usb_report_size=0;
-  largest_bits=0;
-  DeviceCount=0;
+  IdCount=0;
+  
+  //this buffer will be cleared and freed at the end since its a temp buffer
+  uint8_t* t_buffer = (uint8_t*)malloc(150);
+  memset(t_buffer,0,150);
+  size_t t_buffer_size;
 
   /* 
     Calculate how many "devices" we will need to emulate
@@ -393,22 +530,48 @@ void setupUSB(bool begin) {
  
   for (uint16_t i=ButtonCount, j=1; i>0; i-=MIN(device_max_button_count,i), j++) {
     inputs_id[j].buttons = i>device_max_button_count ? device_max_button_count:i;
-    DeviceCount = j>DeviceCount ? j:DeviceCount;
+    IdCount = j>IdCount ? j:IdCount;
   }
   for (uint16_t i=HatCount, j=1; i>0; i-=MIN(device_max_hat_count, i), j++) {   
     inputs_id[j].hats = i>device_max_hat_count ? device_max_hat_count:i;
-    DeviceCount = j>DeviceCount ? j:DeviceCount;
+    IdCount = j>IdCount ? j:IdCount;
   }
   for (uint8_t i=AxisCount, j=1; i>0;i-=MIN(device_max_axis_count,i), j++) {
     inputs_id[j].axis = i>device_max_axis_count ? device_max_axis_count:i;
-    DeviceCount = j>DeviceCount ? j:DeviceCount;
+    IdCount = j>IdCount ? j:IdCount;
   }
-  for (uint16_t i = 1; i<=DeviceCount; i++) {
-    makeDescriptor(i, AxisResolution, inputs_id[i].axis, inputs_id[i].hats, inputs_id[i].buttons, usb_report, &usb_report_size);
+  for (uint16_t id = 1; id<=IdCount; id++) {
+    t_buffer_size = 0;
+    makeJoystickDescriptor(id, AxisResolution, inputs_id[id].axis, inputs_id[id].hats, inputs_id[id].buttons, t_buffer, &t_buffer_size);
+    if (usb_report_size + t_buffer_size < maxBuffSize) {
+      memmove(usb_report+usb_report_size, t_buffer, t_buffer_size);
+      usb_report_size += t_buffer_size;
+    }
+    memset(t_buffer, 0, 150);
+//    makeJoystickDescriptor(id, AxisResolution, inputs_id[id].axis, inputs_id[id].hats, inputs_id[id].buttons, usb_report, &usb_report_size);
   }
-  for (uint8_t rep = 1; rep < MAX_REPORT_ID; rep++) {
-    largest_bits = (largest_bits < total_bits[rep]) ? total_bits[rep] : largest_bits;
+  if (enableKeyboard) {
+    t_buffer_size = 0;
+    makeKeyboardDescriptor(IdCount+1,t_buffer, &t_buffer_size);
+    if (usb_report_size + t_buffer_size < MAX_HID_DESCRIPTOR_SIZE) {
+      memmove(usb_report+usb_report_size,t_buffer,t_buffer_size);
+      usb_report_size += t_buffer_size;
+      memset(t_buffer,0,150);
+    }
   }
+  if (enableMouse) {
+    t_buffer_size = 0;
+    makeMouseDescriptor(IdCount+2,t_buffer, &t_buffer_size);
+    if (usb_report_size + t_buffer_size < MAX_HID_DESCRIPTOR_SIZE) {
+      memmove(usb_report+usb_report_size,t_buffer,t_buffer_size);
+      usb_report_size += t_buffer_size;
+      memset(t_buffer,0,150);
+    }
+  }
+  free(t_buffer);
+}
+
+void setUSB(bool begin) {
 
   TinyUSBDevice.detach();
   TinyUSBDevice.clearConfiguration();
@@ -422,48 +585,21 @@ void setupUSB(bool begin) {
     if (begin)
       SerialTinyUSB.begin(115200);
   
-  if (DeviceCount > 0) {
-    hid_joystick.setPollInterval(1);
-    hid_joystick.setBootProtocol(HID_ITF_PROTOCOL_NONE);
-    hid_joystick.setReportDescriptor(usb_report, usb_report_size);
-    hid_joystick.setReportCallback(get_report_callback, set_report_callback);
-    if (hid_joystick.isValid())
-      TinyUSBDevice.addInterface(hid_joystick);
+  if (IdCount > 0) {
+  //  char name;
+  //  name = DeviceName.concat("Mouse/Keyboard");
+    usb_hid.setPollInterval(1);
+    usb_hid.setBootProtocol(HID_ITF_PROTOCOL_NONE);
+    usb_hid.setReportDescriptor(usb_report, usb_report_size);
+    usb_hid.setReportCallback(get_report_callback, set_report_callback);
+  ///  usb_hid.setStringDescriptor(&name);
+    if (usb_hid.isValid())
+      TinyUSBDevice.addInterface(usb_hid);
     else
-      hid_joystick.begin();
+      usb_hid.begin();
   }
-
-  // HID report descriptor using TinyUSB's template
-  if(enableMouse || enableKeyboard) {
-    if(enableMouse && enableKeyboard) {
-      uint8_t desc_hid_report[] = {
-        TUD_HID_REPORT_DESC_KEYBOARD( VA_HID_REPORT_ID(1) ),
-        TUD_HID_REPORT_DESC_MOUSE   ( VA_HID_REPORT_ID(2) ),
-      };
-      char name = DeviceName.concat(" Mouse/Keyboard");
-      hid_kbm.setStringDescriptor(&name);
-      hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
-    }
-    if (enableMouse && !enableKeyboard) {
-      uint8_t desc_hid_report[] = {
-        TUD_HID_REPORT_DESC_MOUSE   ( ),
-      };
-      char name = DeviceName.concat(" Mouse");
-      hid_kbm.setStringDescriptor(&name);
-      hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
-    }
-    if (!enableMouse && enableKeyboard) {
-      uint8_t desc_hid_report[] = {
-        TUD_HID_REPORT_DESC_KEYBOARD( ),
-      };
-      char name = DeviceName.concat(" Keyboard");
-      hid_kbm.setStringDescriptor(&name);
-      hid_kbm.setReportDescriptor(desc_hid_report, sizeof(desc_hid_report));
-    }
-    if (hid_kbm.isValid())
-      TinyUSBDevice.addInterface(hid_kbm);
-    else
-      hid_kbm.begin();
+  if (enableMsc) {
+    usb_msc.begin();
   }
   TinyUSBDevice.attach();
 
@@ -481,22 +617,16 @@ void setup() {
   // - mbed rp2040
   TinyUSB_Device_Init(0);
 #endif
-  fileSystemConfig.setCSPin(17);
-
-  ////////////////////////////////
-  // FILESYSTEM INIT
-  fileSystemConfig.setAutoFormat(false);
-  fileSystem->setConfig(fileSystemConfig);
-  fsOK = fileSystem->begin();
-  //DBG_OUTPUT_PORT.println(fsOK ? F("Filesystem initialized.") : F("Filesystem init failed!"));
+  setupSD();
+  setupMSC();
   setupINI();
-  setupUSB(true);
-
+  setupDescripor();
+  setUSB(true);
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   setupWifi();
   configTime(3 * 3600, 1, "nl.pool.ntp.org", "0.europe.pool.ntp.org");
 #endif
-
+//u8g2.begin();
 }
 
 
@@ -575,12 +705,12 @@ void loop()
   //}
   if (TinyUSBDevice.ready()) {
     if (readyToUpdate[report] ){
-        hid_joystick.sendReport(report, (void *)reports[report], total_bits[report]/8);
+        usb_hid.sendReport(report, (void *)reports[report], total_bits[report]/8);
         memcpy(old_reports[report],(void *)reports[report],total_bits[report]/8);
         readyToUpdate[report] = false;
     }
     report++;
-    if (report >= DeviceCount)
+    if (report >= IdCount)
       report = 1;
   }
 }
@@ -634,10 +764,14 @@ void setup1()
   //setLedI2cSlave(1,0x21,0);
   //setLedI2cSlave(2,0x21,0);
   
-  joystick_client.Setup();
+  fakeThrottle.setup();
 
 #if MAX_UPDATES_PER_SECOND
+#ifndef USE_NEW
   static x52::util::RateLimiter<MAX_UPDATES_PER_SECOND, MAX_UPDATES_PER_SECOND> rate_limiter;
+#else
+  static RateLimiter<MAX_UPDATES_PER_SECOND, MAX_UPDATES_PER_SECOND> rate_limiter;
+#endif
 #endif
 
 }
@@ -702,23 +836,32 @@ void loop1()
   // after the delay introduced by the rate limiter.
   // Without PrepareForPoll it can take up to 1500ms for the joystick
   // to respond to our PollJoystickState call.
-  joystick_client.PrepareForPoll();
+  //WfakeThrottle.PrepareForPoll();
 
 
 
 #if MAX_UPDATES_PER_SECOND
+#ifndef USE_NEW
   static x52::util::RateLimiter<MAX_UPDATES_PER_SECOND, MAX_UPDATES_PER_SECOND> rate_limiter;
+#else
+  static RateLimiter<MAX_UPDATES_PER_SECOND, MAX_UPDATES_PER_SECOND> rate_limiter;
+#endif
   unsigned long d = rate_limiter.MicrosTillNextUpdate();
   if (d == 0) {
 #endif
   // Query the state of the X52 Pro joystick via the PS/2 connection and send it to
   // the PC as the state of the USB joystick emulated by the Arduino-compatible board.
+#ifndef USE_NEW
   x52::pro::JoystickConfig cfg;
   x52::pro::JoystickState state;
+#else
+  JoystickConfig cfg;
+  JoystickState state;
+#endif
   cfg.led_brightness = LED;
 
 
-  auto timeout_micros = joystick_client.PollJoystickState(state, cfg);
+  auto timeout_micros = fakeThrottle.PollJoystickState(state, cfg);
   if (timeout_micros) {
     //X52DebugPrintln("PollJoystickState failed");
     //delayMicroseconds(timeout_micros);
@@ -726,33 +869,55 @@ void loop1()
   }
   bool empty = false;
 
-
+#ifndef USE_NEW
   bool p2u = bool(state.pov_2 & x52::Up);
   bool p2d = bool(state.pov_2 & x52::Down);
   bool p2l = bool(state.pov_2 & x52::Left);
   bool p2r = bool(state.pov_2 & x52::Right);
-  
+#else
+  bool p2u = bool(state.pov_2 & Up);
+  bool p2d = bool(state.pov_2 & Down);
+  bool p2l = bool(state.pov_2 & Left);
+  bool p2r = bool(state.pov_2 & Right);
+#endif
+
   bool M1 = 0;
   bool M2 = 0; 
   bool M3 = 0;
 
 switch (state.mode) {
-    case x52::ModeUndefined: 
+#ifndef USE_NEW
+    case x52::ModeUndefined:
+#else
+    case ModeUndefined:
+#endif
       M1 = 0;
       M2 = 0; 
       M3 = 0;
     break;
-    case x52::Mode1: 
+#ifndef USE_NEW
+    case x52::Mode1:
+#else
+    case Mode1:
+#endif
       M1 = 1;
       M2 = 0;
       M3 = 0;
     break;
+#ifndef USE_NEW
     case x52::Mode2:
+#else
+    case Mode2:
+#endif
       M1 = 0;
       M2 = 1;
       M3 = 0;
     break;
+#ifndef USE_NEW
     case x52::Mode3:
+#else
+    case Mode3:
+#endif
       M1 = 0;
       M2 = 0;
       M3 = 1;
@@ -769,7 +934,8 @@ switch (state.mode) {
   //Serial.println(getAxisI2cSlave<uint16_t>(0x21, 5),BIN);
 
 if (readyToUpdate[1]== false) {
-    memset((void *)reports[1], 0, largest_bits/8);
+    //memset((void *)reports[1], 0, largest_bits/8);
+    memset((void *)reports[1], 0, sizeof(reports[1]));
     switch (state.pov_1) {
       case 0b0001:  set_hat(reports[1], 1, 0 ,0b0011); break;
       case 0b0011:  set_hat(reports[1], 1, 0 ,0b0100); break;
@@ -793,8 +959,8 @@ if (readyToUpdate[1]== false) {
     set_button(reports[1], 1, 3, state.button_b);
     set_button(reports[1], 1, 4, state.button_c);
     set_button(reports[1], 1, 5, state.pinkie_switch);
-    set_button(reports[1], 1, 6, getButtonI2cSlave(0x21, Button1));
-    set_button(reports[1], 1, 7, getButtonI2cSlave(0x21, Button3));
+    set_button(reports[1], 1, 6, getButtonI2cSlave(0x21, 0));
+    set_button(reports[1], 1, 7, getButtonI2cSlave(0x21, 2));
     set_button(reports[1], 1, 8, state.button_t1);
     set_button(reports[1], 1, 9, state.button_t2);
     set_button(reports[1], 1, 10, state.button_t3);
@@ -802,25 +968,25 @@ if (readyToUpdate[1]== false) {
     set_button(reports[1], 1, 12, state.button_t5);
     set_button(reports[1], 1, 13, state.button_t6);
     set_button(reports[1], 1, 14, state.trigger_stage_2);
-    set_button(reports[1], 1, 15, getButtonI2cSlave(0x21, Button10));
+    set_button(reports[1], 1, 15, getButtonI2cSlave(0x21, 9));
     set_button(reports[1], 1, 16, empty); // scroll up
     set_button(reports[1], 1, 17, empty); //scroll down
-    set_button(reports[1], 1, 18, getButtonI2cSlave(0x21, Button11));
+    set_button(reports[1], 1, 18, getButtonI2cSlave(0x21, 10));
     set_button(reports[1], 1, 19, p2u);
     set_button(reports[1], 1, 20, p2r);
     set_button(reports[1], 1, 21, p2d);
     set_button(reports[1], 1, 22, p2l);
-    set_button(reports[1], 1, 23, getButtonI2cSlave(0x21, Button7));
-    set_button(reports[1], 1, 24, getButtonI2cSlave(0x21, Button6));
-    set_button(reports[1], 1, 25, getButtonI2cSlave(0x21, Button5));
-    set_button(reports[1], 1, 26, getButtonI2cSlave(0x21, Button4));
+    set_button(reports[1], 1, 23, getButtonI2cSlave(0x21, 6));
+    set_button(reports[1], 1, 24, getButtonI2cSlave(0x21, 5));
+    set_button(reports[1], 1, 25, getButtonI2cSlave(0x21, 4));
+    set_button(reports[1], 1, 26, getButtonI2cSlave(0x21, 3));
     set_button(reports[1], 1, 27, M1);
     set_button(reports[1], 1, 28, M2);
     set_button(reports[1], 1, 29, M3);
-    set_button(reports[1], 1, 30, getButtonI2cSlave(0x21, Button2));
+    set_button(reports[1], 1, 30, getButtonI2cSlave(0x21, 1));
 
-  // 15/14 scroll mfd
-  // 9/8 pg scroll
+  // pin 15/14 scroll mfd
+  // pin 9/8 pg scroll
 
 
     set_button(reports[1], 1, 31, !digitalRead(10)); //function

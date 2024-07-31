@@ -1,0 +1,63 @@
+.program throttle
+.side_set 1 opt
+
+.wrap_target
+ mov x, y
+read_loop:
+  wait 1 pin 1 [1] side 1 ; wait for 1 on pin ClockOut and side_set pin 2 to 1
+  wait 0 pin 1 [1] side 0 ; wait for 0 on pin ClockOut and side_set pin 2 to 0 
+  in pins 1
+  jmp x-- read_loop
+  push
+
+  wait 1 pin 1 [1] side 1
+  set pins, 1
+  wait 0 pin 1 [1] side 0
+  set pins, 0
+
+  set x, 18 ; loop 19 times for writing bits
+write_loop:
+  wait 1 pin 1 [1] side 1 ; wait for 1 on pin ClockOut and side_set pin 2 to 1 
+  wait 0 pin 1 [1] side 0 ; wait for 0 on pin ClockOut and side_set pin 2 to 0
+  out pins, 1
+  jmp x-- write_loop
+.wrap
+
+% c-sdk {
+
+#include "pico/stdlib.h"
+#include "hardware/pio.h"
+static inline void throttle_program_init(PIO pio, uint sm, uint offset, uint DataOut, uint ClockOut, uint DataIn, uint ClockIn) {
+
+    // Configure state machine
+    pio_sm_config config = throttle_program_get_default_config(offset);
+
+    sm_config_set_in_shift(&config, false, true, 28);
+    sm_config_set_out_shift(&config, false, true, 31);
+    
+    // Map pins
+    sm_config_set_out_pins(&config, DataOut, 1);
+    sm_config_set_set_pins(&config, DataOut, 1);
+    sm_config_set_in_pins(&config, DataIn);
+    sm_config_set_sideset_pins(&config, ClockOut);
+
+    // Set pin directions
+    pio_sm_set_consecutive_pindirs(pio, sm, DataOut, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, ClockOut, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, DataIn, 1, false);
+    pio_sm_set_consecutive_pindirs(pio, sm, ClockIn, 1, false);
+
+    // Side-set options
+    sm_config_set_sideset(&config, 1, true, false);  // 1 side-set pin, optional, enable side-set
+
+    // Set variable for loop 
+    pio_sm_put(pio, sm, 55);
+    pio_sm_exec(pio, sm, pio_encode_pull(false, false));
+    pio_sm_exec(pio, sm, pio_encode_mov(pio_y,pio_osr));
+
+    // Initialize state machine
+    pio_sm_init(pio, sm, offset, &config);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+%}

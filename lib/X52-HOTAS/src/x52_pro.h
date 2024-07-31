@@ -28,13 +28,13 @@
 	#define X52_PRO_JOYSTICK_DESYNC_UNRESPONSIVE_MICROS 23000
 #endif
 
-// Enabling this feature allows the ThrottleClient to behave differently from
+// Enabling this feature allows the FakeJoystick to behave differently from
 // the original joystick in order to make the desync detection more reliable.
 #ifndef X52_PRO_IMPROVED_THROTTLE_CLIENT_DESYNC_DETECTION
 	#define X52_PRO_IMPROVED_THROTTLE_CLIENT_DESYNC_DETECTION 0
 #endif
 
-// Enabling this feature allows the JoystickClient to behave differently from
+// Enabling this feature allows the FakeThrottle to behave differently from
 // the original throttle in order to make the desync detection more reliable.
 #ifndef X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION
 	#define X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION 0
@@ -48,6 +48,15 @@
 	#define X52_PRO_DEFAULT_SEND_JOYSTICK_STATE_WAIT_MICROS 25000
 #endif
 
+
+inline void SetUInt(uint32_t b, uint8_t index, uint8_t size, uint8_t value) {
+	for (uint8_t i = 0; i<size; i++)
+		bitWrite(b, index+i, (value >> i) & 1);
+}
+
+inline void SetBit(uint32_t b, uint8_t index, bool value) {
+	bitWrite(b, index, value);
+}
 
 namespace x52 {
 namespace pro {
@@ -104,6 +113,7 @@ struct JoystickState {
 	typedef BitField<NUM_BITS> Binary;
 
 	void SetFromBinary(const Binary&);
+	void SetFromBinary2(const uint64_t);
 	void ToBinary(Binary&) const;
 };
 
@@ -142,6 +152,7 @@ struct JoystickConfig {
 	typedef BitField<NUM_BITS> Binary;
 
 	void SetFromBinary(const Binary&);
+	void SetFromBinary2(const uint64_t);
 	void ToBinary(Binary&) const;
 };
 
@@ -281,8 +292,7 @@ inline void JoystickState::ToBinary(Binary& b) const {
 	b.SetBit(55, button_t6);
 }
 
-
-// JoystickClient makes it possible to use some of your Arduino pins as a
+// FakeThrottle makes it possible to use some of your Arduino pins as a
 // connection to the PS/2 socket of an X52 Pro Joystick.
 //
 // These pin names (C01..C04) were printed on the PCB of my X52 joystick.
@@ -303,11 +313,11 @@ inline void JoystickState::ToBinary(Binary& b) const {
 // My X52 Pro throttle uses 4.1-4.2V for both power and GPIO but the joystick
 // works with 3.3V too.
 template <int PIN_C01, int PIN_C02, int PIN_C03, int PIN_C04>
-class JoystickClient {
+class FakeThrottle {
 public:
 	// Call Setup from the setup function of your Arduino project to initialize
-	// a JoystickClient instance.
-	void Setup() {
+	// a FakeThrottle instance.
+	void setup() {
 		pinMode(PIN_C01, OUTPUT_12MA);
 		pinMode(PIN_C02, OUTPUT_12MA);
 		// On the teensy the digitalWrite seems to work only after pinMode.
@@ -337,6 +347,17 @@ public:
 		JoystickConfig::Binary send_buf;
 		cfg.ToBinary(send_buf);
 
+		uint32_t sendbuf=0;
+		uint64_t recvbuf = 0;
+		SetUInt(sendbuf, 0, 5, cfg.led_brightness);
+		SetBit(sendbuf, 5, cfg.pov_1_led_blinking);
+		SetUInt(sendbuf, 6, 2, cfg.button_a_led);
+		SetUInt(sendbuf, 8, 2, cfg.pov_2_led);
+		SetBit(sendbuf, 10, !cfg.button_fire_led);
+		SetUInt(sendbuf, 11, 2, cfg.button_b_led);
+		SetUInt(sendbuf, 13, 2, cfg.button_t1_t2_led);
+		SetUInt(sendbuf, 15, 2, cfg.button_t3_t4_led);
+		SetUInt(sendbuf, 17, 2, cfg.button_t5_t6_led);
 		// deadline for the whole frame transmission
 		unsigned long deadline = micros() + wait_micros;
 
@@ -350,6 +371,7 @@ public:
 #endif
 			if (i >= 57)
 				digitalWrite(PIN_C01, send_buf.Bit(i-57));
+				//digitalWrite(PIN_C01, bitRead(sendbuf,i-57));
 
 			digitalWrite(PIN_C02, HIGH);
 
@@ -360,7 +382,7 @@ public:
 				X52DebugPrint("Error waiting for C04=1. Clock cycle: ");
 				X52DebugPrintln(i);
 #if X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION
-				if (i >= 57)
+					if (i >= 57)
 					digitalWrite(PIN_C01, HIGH);
 #endif
 				digitalWrite(PIN_C02, LOW);
@@ -404,9 +426,11 @@ public:
 			// falling edge of C04 and the rising edge of C02.
 			if (i < JoystickState::NUM_BITS)
 				recv_buf.SetBit(i, bool(digitalRead(PIN_C03)));
+				//bitWrite(recvbuf, i, bool(digitalRead(PIN_C03)));
 		}
 
 		state.SetFromBinary(recv_buf);
+		//state.SetFromBinary2(recvbuf);
 		return 0;
 	}
 
@@ -416,16 +440,16 @@ public:
 };
 
 
-// ThrottleClient makes it possible to use some of your Arduino pins as a
+// FakeJoystick makes it possible to use some of your Arduino pins as a
 // connection to the PS/2 socket of an X52 Pro Throttle.
 //
-// The pin config is the same as that of the JoystickClient.
+// The pin config is the same as that of the FakeThrottle.
 template <int PIN_C01, int PIN_C02, int PIN_C03, int PIN_C04>
-class ThrottleClient {
+class FakeJoystick {
 public:
 	// Call Setup from the setup function of your Arduino project to initialize
-	// a ThrottleClient instance.
-	void Setup() {
+	// a FakeJoystick instance.
+	void setup() {
 		pinMode(PIN_C01, INPUT);
 		pinMode(PIN_C02, INPUT);
 		pinMode(PIN_C03, OUTPUT);

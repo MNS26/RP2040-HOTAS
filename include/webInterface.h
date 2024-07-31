@@ -588,7 +588,7 @@ void updateHid() {
   extern void readSystemINI();
   if (server.hasArg("devicename")) {
     String a = server.arg("devicename");
-    if (a.length()>0) {
+    if (a.length()> 0) {
       DeviceName = a;
     server.send(200);
     } else {
@@ -691,7 +691,8 @@ void updateHid() {
   if (server.hasArg("restart")) {
     server.send(200);
     writeSystemINI();
-    setupUSB(false);
+    setupDescripor();
+    setUSB(false);
   }
 }
 
@@ -791,7 +792,7 @@ void setupWifi() {
   // Get I2C slave list
   server.on("/listI2C", i2cResult);
 
-  server.on("/settings",[](){if(handleFileRead(F("/settings.html"))) {return;}});
+  server.on("/settings",[](){if(handleFileRead(F("/settings/settings.html"))) {return;}});
 
   server.on("/settings/updatehid",updateHid);
 
@@ -816,6 +817,7 @@ void setupWifi() {
   server.on("/edit/index.html", [](){if (!is_authenticated()) {server.send(403);return;} handleGetEdit();});
 
   server.on("/",[](){if(handleFileRead(F("/index.html"))) {return;}});
+  server.on("/pinout",[](){if(handleFileRead(F("/pinout/pinout.html"))) {return;}});
 
   // Default handler for all URIs not defined above
   // Use it to read files from filesystem
