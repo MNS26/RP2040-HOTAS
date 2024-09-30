@@ -18,9 +18,8 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install PlatformIO Core
-        run: |
-            echo '[wifi]\nAP=\n; LINUX\n	-D STASSID=\"AP\"\n	-D STAPSK=\"PASSWORD\"\n\n; WINDOWS\n;	-D STASSID="AP"\n;	-D STAPSK="PASSWORD"' > ./WIFI_CR
-            pip install --upgrade platformio
-
+        run: pip install --upgrade platformio
+      - name: create dummy wifi file
+        run: echo '[wifi]\nAP=\n; LINUX\n	-D STASSID=\"AP\"\n	-D STAPSK=\"PASSWORD\"\n\n; WINDOWS\n;	-D STASSID="AP"\n;	-D STAPSK="PASSWORD"' > ./WIFI_CR
       - name: Build PlatformIO Project
         run: pio run
