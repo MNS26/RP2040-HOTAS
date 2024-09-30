@@ -2,8 +2,8 @@
 
 AP=
 ; LINUX
-	-D STASSID=\"Thuis\"
-	-D STAPSK=\"Welkom2016!\"
+	-D STASSID=\"AP\"
+	-D STAPSK=\"PASSWORD\"
 
 ; WINDOWS
 ;	-D STASSID="AP"
