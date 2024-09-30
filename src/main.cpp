@@ -1,6 +1,5 @@
 /*== JOYSTICK ==*/
 
-
 #define MAX_USB_PACKET_SIZE 64
 #define MAX_HID_DESCRIPTOR_SIZE 4096
 
@@ -19,11 +18,15 @@
 
 //#include "HID_Report.h"
 #include <Adafruit_TinyUSB.h>
+
+
 #include <Adafruit_NeoPixel.h>
 #include <math.h>
 #include "CRC.h"
 #include "Wire.h"
 #include "SPI.h"
+
+#include "FreeRTOS.h"
 
 //U8G2_ST7528_ERC16064_1_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 255, /* dc=*/ 255, /* reset=*/ 255);
 
@@ -42,7 +45,10 @@ const char* fsName = "LittleFS";
 FS* fileSystem = &LittleFS;
 LittleFSConfig fileSystemConfig = LittleFSConfig();
 #elif defined USE_SDFS
+
 #include <SDFS.h>
+//#include <FatFS.h>
+//#include <FatFSUSB.h>
 const char* fsName = "SDFS";
 
 FS* fileSystem = &SDFS;
@@ -86,9 +92,9 @@ Adafruit_NeoPixel pixel;
 input_id inputs_id[MAX_REPORT_ID];
 
 
-bool enableKeyboard = 1;
-bool enableMouse = 1;
-bool enableMsc = 1;
+bool enableKeyboard = 0;
+bool enableMouse = 0;
+bool enableMsc = 0;
 uint8_t IdCount;
 uint8_t MaxDeviceCount = MAX_REPORT_ID; 
 uint16_t hue;
@@ -133,7 +139,7 @@ Adafruit_USBD_MSC usb_msc;
 byte i2cIDs[128];
 
 
-void setupDescripor();
+void setupDescriptor();
 void setUSB(bool);
 static bool fsOK;
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W //todo add more wifi boards (eg esp32)
@@ -264,54 +270,142 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
 }
 
 
+
+
+
+
+
+
 //--------------------------------------------------------------------+
 // SD Card
 //--------------------------------------------------------------------+
 
-int32_t msc_read_cb (uint32_t lba, void* buffer, uint32_t bufsize)
-{
-  (void) bufsize;
-  bool rc=false;
-#if SD_FAT_VERSION >= 20000
-//  rc = sd->card()->readSectors(lba, (uint8_t*) buffer, bufsize/512);
-#else
-  rc = sd->card()->readBlocks(lba, (uint8_t*) buffer, bufsize/512);
-#endif
 
-  return rc ? bufsize : -1;
-}
 
-// Callback invoked when received WRITE10 command.
-// Process data in buffer to disk's storage and 
-// return number of written bytes (must be multiple of block size)
-int32_t msc_write_cb (uint32_t lba, uint8_t* buffer, uint32_t bufsize)
-{
-  bool rc=false;
 
-#if SD_FAT_VERSION >= 20000
-//  rc = sd->card()->writeSectors(lba, buffer, bufsize/512);
-#else
-  rc = sd->card()->writeBlocks(lba, buffer, bufsize/512);
-#endif
+// // Invoked to determine max LUN
+// extern "C" uint8_t tud_msc_get_maxlun_cb(void) {
+//     return 1;
+// }
 
-  return rc ? bufsize : -1;
-}
+// // Invoked when received SCSI_CMD_INQUIRY
+// // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
+// extern "C" void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {
+//     (void) lun;
 
-// Callback invoked when WRITE10 command is completed (status received and accepted by host).
-// used to flush any pending cache.
-void msc_flush_cb (void)
-{
-#if SD_FAT_VERSION >= 20000
-//  sd->card()->syncDevice();
-#else
-  sd->card()->syncBlocks();
-#endif
+//     const char vid[] = "PicoDisk";
+//     const char pid[] = "Mass Storage";
+//     const char rev[] = "1.0";
 
-  // clear file system's cache to force refresh
-  //sd->cacheClear();
+//     memcpy(vendor_id, vid, strlen(vid));
+//     memcpy(product_id, pid, strlen(pid));
+//     memcpy(product_rev, rev, strlen(rev));
+// }
 
-//  sd_changed = true;
-}
+// bool FatFSUSBClass::testUnitReady() {
+//     bool ret = _started;
+//     if (_driveReady) {
+//         ret &= _driveReady(_driveReadyData);
+//     }
+//     return ret;
+// }
+
+// // Invoked when received Test Unit Ready command.
+// // return true allowing host to read/write this LUN e.g SD card inserted
+// extern "C" bool tud_msc_test_unit_ready_cb(uint8_t lun) {
+//     (void) lun;
+
+//     return FatFSUSB.testUnitReady();
+// }
+
+// // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
+// // Application update block count and block size
+// extern "C" void tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_size) {
+//     (void) lun;
+//     fatfs::LBA_t p;
+//     fatfs::disk_ioctl(0, GET_SECTOR_COUNT, &p);
+//     *block_count = p;
+//     fatfs::WORD ss;
+//     fatfs::disk_ioctl(0, GET_SECTOR_SIZE, &ss);
+//     *block_size  = ss;
+// }
+
+
+// // Callback invoked when received READ10 command.
+// // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
+// extern "C" int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize) {
+//     (void) lun;
+//     return FatFSUSB.read10(lba, offset, buffer, bufsize);
+// }
+
+// int32_t FatFSUSBClass::read10(uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize) {
+//     fatfs::LBA_t _hddsects;
+//     fatfs::disk_ioctl(0, GET_SECTOR_COUNT, &_hddsects);
+
+//     if (!_started || (lba >= _hddsects)) {
+//         return -1;
+//     }
+
+//     assert(offset + bufsize <= _sectSize);
+
+//     if (_sectNum >= 0) {
+//         // Flush the temp data out, we need to use the space
+//         fatfs::disk_write(0, _sectBuff, _sectNum, 1);
+//         _sectNum = -1;
+//     }
+//     fatfs::disk_read(0, _sectBuff, lba, 1);
+//     memcpy(buffer, _sectBuff + offset, bufsize);
+//     return bufsize;
+// }
+
+// extern "C" bool tud_msc_is_writable_cb(uint8_t lun) {
+//     (void) lun;
+
+//     return true;
+// }
+
+// // Callback invoked when received WRITE10 command.
+// // Process data in buffer to disk's storage and return number of written bytes
+// extern "C" int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize) {
+//     (void) lun;
+//     return FatFSUSB.write10(lba, offset, buffer, bufsize);
+// }
+
+// int32_t FatFSUSBClass::write10(uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize) {
+//     fatfs::LBA_t _hddsects;
+//     fatfs::disk_ioctl(0, GET_SECTOR_COUNT, &_hddsects);
+
+//     if (!_started || (lba >= _hddsects)) {
+//         return -1;
+//     }
+
+//     assert(offset + bufsize <= _sectSize);
+
+//     if ((offset == 0) && (bufsize == _sectSize)) {
+//         fatfs::disk_write(0, buffer, lba, 1);
+//         return _sectSize;
+//     }
+
+//     if ((int)_sectNum == (int)lba) {
+//         memcpy(_sectBuff + offset, buffer, bufsize);
+//     } else {
+//         if (_sectNum >= 0) {
+//             // Need to flush old sector out
+//             fatfs::disk_write(0, _sectBuff, _sectNum, 1);
+//         }
+//         fatfs::disk_read(0, _sectBuff, lba, 1);
+//         memcpy(_sectBuff + offset, buffer, bufsize);
+//         _sectNum = lba;
+//     }
+
+//     if (offset + bufsize >= _sectSize) {
+//         // We've filled up a sector, write it out!
+//         fatfs::disk_write(0, _sectBuff, lba, 1);
+//         _sectNum = -1;
+//     }
+//     return bufsize;
+// }
+
 
 
 bool getButtonI2cSlave (int slaveID, int inputID) {
@@ -466,17 +560,6 @@ void setupSD() {
   //DBG_OUTPUT_PORT.println(fsOK ? F("Filesystem initialized.") : F("Filesystem init failed!"));
 }
 
-void setupMSC () {
-  usb_msc.setMaxLun(1);
-  FSInfo64 fs_info;
-  fileSystem->info64(fs_info);
-  usb_msc.setID("test1", "test2", "0.0");
-  usb_msc.setCapacity(fs_info.totalBytes/fs_info.blockSize, fs_info.blockSize);
-  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb);
-  usb_msc.setUnitReady(true);
-}
-
-
 void setupINI() {
   if (!fileSystem->exists("/config/settings.ini")) {
     File file = fileSystem->open("/config/settings.ini","w");
@@ -497,7 +580,7 @@ void setupINI() {
   }
 }
 
-void setupDescripor() {
+void setupDescriptor() {
   uint16_t maxBuffSize = MAX_HID_DESCRIPTOR_SIZE;
   if (enableMouse)
     maxBuffSize -= 79;
@@ -599,7 +682,7 @@ void setUSB(bool begin) {
       usb_hid.begin();
   }
   if (enableMsc) {
-    usb_msc.begin();
+    //TODO
   }
   TinyUSBDevice.attach();
 
@@ -618,9 +701,8 @@ void setup() {
   TinyUSB_Device_Init(0);
 #endif
   setupSD();
-  setupMSC();
   setupINI();
-  setupDescripor();
+  setupDescriptor();
   setUSB(true);
 #ifdef ARDUINO_RASPBERRY_PI_PICO_W
   setupWifi();

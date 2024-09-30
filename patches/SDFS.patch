@@ -1,6 +1,18 @@
-278a279,281
-> #if defined(ARDUINO_ARCH_RP2040)
->         return _opened ? _fd->availableForWrite() : 0;
-> #else
-279a283
-> #endif
+diff --git a/home/noah/.platformio/packages/framework-arduinopico/libraries/SDFS/src/SDFS.h.bak b/home/noah/.platformio/packages/framework-arduinopico/libraries/SDFS/src/SDFS.h
+index c9569af..0f1816f 100644
+--- a/home/noah/.platformio/packages/framework-arduinopico/libraries/SDFS/src/SDFS.h.bak
++++ b/home/noah/.platformio/packages/framework-arduinopico/libraries/SDFS/src/SDFS.h
+@@ -283,9 +283,12 @@ public:
+         close();
+     }
+ 
+-
+     int availableForWrite() override {
++    #if defined(ARDUINO_ARCH_RP2040)
++        return _opened ? _fd->availableForWrite() : 0;
++    #else
+         return _opened ? _fd->availableSpaceForWrite() : 0;
++    #endif
+     }
+ 
+     size_t write(const uint8_t *buf, size_t size) override {

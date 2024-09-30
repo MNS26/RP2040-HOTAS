@@ -188,33 +188,33 @@ enum {
   HID_USAGE_DESKTOP_TABLET_PC_SYSTEM      = 0x09,
 };
 
-#define HID_DATA             (0<<0)
-#define HID_CONSTANT         (1<<0) //1
-#define HID_ARRAY            (0<<1)
-#define HID_VARIABLE         (1<<1) //2
-#define HID_ABSOLUTE         (0<<2)
-#define HID_RELATIVE         (1<<2) //4
-#define HID_WRAP_NO          (0<<3)
-#define HID_WRAP             (1<<3) //8
-#define HID_LINEAR           (0<<4)
-#define HID_NONLINEAR        (1<<4) //16
-#define HID_PREFERRED_STATE  (0<<5)
-#define HID_PREFERRED_NO     (1<<5) //32
-#define HID_NO_NULL_POSITION (0<<6)
-#define HID_NULL_STATE       (1<<6) //64
-#define HID_NON_VOLATILE     (0<<7)
-#define HID_VOLATILE         (1<<7) //128
-#define HID_BITFIELD         (0<<8)
-#define HID_BUFFERED_BYTES   (1<<8) //256
+//#define HID_DATA             (0<<0)
+//#define HID_CONSTANT         (1<<0) //1
+//#define HID_ARRAY            (0<<1)
+//#define HID_VARIABLE         (1<<1) //2
+//#define HID_ABSOLUTE         (0<<2)
+//#define HID_RELATIVE         (1<<2) //4
+//#define HID_WRAP_NO          (0<<3)
+//#define HID_WRAP             (1<<3) //8
+//#define HID_LINEAR           (0<<4)
+//#define HID_NONLINEAR        (1<<4) //16
+//#define HID_PREFERRED_STATE  (0<<5)
+//#define HID_PREFERRED_NO     (1<<5) //32
+//#define HID_NO_NULL_POSITION (0<<6)
+//#define HID_NULL_STATE       (1<<6) //64
+//#define HID_NON_VOLATILE     (0<<7)
+//#define HID_VOLATILE         (1<<7) //128
+//#define HID_BITFIELD         (0<<8)
+//#define HID_BUFFERED_BYTES   (1<<8) //256
 
-#define ENCODE_1(x)          x
-#define ENCODE_2(x)          (x & 0xff), (x >> 8)
-#define ENCODE_3(x)          (x & 0xff), (x >> 24), (x >> 16), (x >> 8)
+//#define ENCODE_1(x)          x
+//#define ENCODE_2(x)          (x & 0xff), (x >> 8)
+//#define ENCODE_3(x)          (x & 0xff), (x >> 24), (x >> 16), (x >> 8)
 
-#define HID_REPORT_ITEM_N    (data, tag, type, size) (((tag) << 4) | ((type) << 2) | (size)), ENCODE_##size(data)
-#define HID_REPORT_ITEM_8    (data, tag, type) (((tag) << 4) | ((type) << 2) | (1)), ENCODE_1(data)
-#define HID_REPORT_ITEM_16   (data, tag, type) (((tag) << 4) | ((type) << 2) | (2)), ENCODE_2(data)
-#define HID_REPORT_ITEM_32   (data, tag, type) (((tag) << 4) | ((type) << 2) | (3)), ENCODE_3(data)
+//#define HID_REPORT_ITEM_N    (data, tag, type, size) (((tag) << 4) | ((type) << 2) | (size)), ENCODE_##size(data)
+//#define HID_REPORT_ITEM_8    (data, tag, type) (((tag) << 4) | ((type) << 2) | (1)), ENCODE_1(data)
+//#define HID_REPORT_ITEM_16   (data, tag, type) (((tag) << 4) | ((type) << 2) | (2)), ENCODE_2(data)
+//#define HID_REPORT_ITEM_32   (data, tag, type) (((tag) << 4) | ((type) << 2) | (3)), ENCODE_3(data)
 typedef struct {
   int report_size;
   int report_count;
@@ -254,41 +254,23 @@ void addshort(uint8_t **p, uint16_t d) {
   *((*p)++) = d >> 8;
 }
 
-void hid_usage_page(uint8_t **p, uint8_t page) {
-  addbyte(p, 0x5);
-  addbyte(p, page);
-  stack[sp].usage_page = page;
-}
-
-void hid_usage(uint8_t **p, uint8_t usage) {
-  addbyte(p, 0x9);
-  addbyte(p, usage);
-  stack[sp].usage[stack[sp].next_usage++] = usage;
-}
-
-void hid_report_id(uint8_t **p, uint8_t id) {
-  addbyte(p, 0x85);
-  addbyte(p, id);
-  stack[sp].reportid = id;
-  assert(id < MAX_REPORT_ID+1);
-}
-
-void hid_collection(uint8_t **p, uint8_t collection) {
-  addbyte(p, 0xa1);
-  addbyte(p, collection);
-}
-
-void hid_collection_end(uint8_t **p) {
-  addbyte(p, 0xc0);
+void addlong(uint8_t **p, uint32_t d) {
+  *((*p)++) = (d >>  0) & 0xff;
+  *((*p)++) = (d >>  8) & 0xff;
+  *((*p)++) = (d >> 16) & 0xff;
+  *((*p)++) = (d >> 24) & 0xff;
 }
 
 int get_bytes(uint16_t d) {
-  if ((d >= 0) && (d <= UINT8_MAX)) return 1;
-  else if ((d >= 0) && (d <= UINT16_MAX)) return 2;
-  else return 3;
+  if ((d >= 0) && (d <= UINT8_MAX)) 
+    return 1;
+  else if ((d >= 0) && (d <= UINT16_MAX))
+    return 2;
+  else if ((d >= 0) && (d <= UINT32_MAX))
+    return 3;
 }
 
-void add_variable(uint8_t **p, uint16_t d, int bytes) {
+void add_variable(uint8_t **p, uint32_t d, int bytes) {
   switch (bytes) {
   case 1:
     addbyte(p, d);
@@ -296,52 +278,98 @@ void add_variable(uint8_t **p, uint16_t d, int bytes) {
   case 2:
     addshort(p, d);
     break;
+  case 3:
+    addlong(p, d);
+    break;
   }
 }
 
-void hid_report_size(uint8_t **p, uint8_t size) {
-  addbyte(p, 0x75);
-  addbyte(p, size);
+void hid_usage_page(uint8_t **p, uint32_t page) {
+  uint8_t bytes = get_bytes(page);
+  
+  addbyte(p, 0x4 | bytes);
+  add_variable(p, page, bytes);
+  stack[sp].usage_page = page;
+}
+
+void hid_usage(uint8_t **p, uint32_t usage) {
+  uint8_t bytes = get_bytes(usage);
+
+  addbyte(p, 0x8 | bytes);
+  add_variable(p, usage, bytes);
+  stack[sp].usage[stack[sp].next_usage++] = usage;
+}
+
+void hid_report_id(uint8_t **p, uint32_t id) {
+  uint8_t bytes = get_bytes(id);
+
+  addbyte(p, 0x84 | bytes);
+  add_variable(p, id, bytes);
+  stack[sp].reportid = id;
+  assert(id < MAX_REPORT_ID+1);
+}
+
+void hid_collection(uint8_t **p, uint32_t collection) {
+  uint8_t bytes = get_bytes(collection);
+
+  addbyte(p, 0xa0 | bytes);
+  add_variable(p, collection, bytes);
+}
+
+void hid_collection_end(uint8_t **p) {
+  addbyte(p, 0xc0);
+}
+
+void hid_report_size(uint8_t **p, uint32_t size) {
+  uint8_t bytes = get_bytes(size);
+
+  addbyte(p, 0x74 | bytes);
+  add_variable(p, size, bytes);
   stack[sp].report_size = size;
 }
 
-void hid_report_count(uint8_t **p, uint16_t count) {
+void hid_report_count(uint8_t **p, uint32_t count) {
   int bytes = get_bytes(count);
+
   addbyte(p, 0x94 | bytes);
   add_variable(p, count, bytes);
   stack[sp].report_count = count;
 #
 }
 
-void hid_logical_min(uint8_t **p, uint8_t min) {
-  addbyte(p, 0x15);
-  addbyte(p, min);
+void hid_logical_min(uint8_t **p, uint32_t min) {
+  uint8_t bytes = get_bytes(min);
+
+  addbyte(p, 0x14 | bytes);
+  add_variable(p, min, bytes);
 }
 
-void hid_logical_max(uint8_t **p, uint16_t max) {
+void hid_logical_max(uint8_t **p, uint32_t max) {
   int bytes = get_bytes(max);
 
   addbyte(p, 0x24 | bytes);
   add_variable(p, max, bytes);
 }
 
-void hid_physical_min(uint8_t **p, uint16_t min) {
+void hid_physical_min(uint8_t **p, uint32_t min) {
   int bytes = get_bytes(min);
 
   addbyte(p, 0x34 | bytes);
   add_variable(p, min, bytes);
 }
 
-void hid_physical_max(uint8_t **p, uint16_t max) {
+void hid_physical_max(uint8_t **p, uint32_t max) {
   int bytes = get_bytes(max);
 
   addbyte(p, 0x44 | bytes);
   add_variable(p, max, bytes);
 }
 
-void hid_input(uint8_t **p, uint8_t input) {
-  addbyte(p, 0x81);
-  addbyte(p, input);
+void hid_input(uint8_t **p, uint32_t input) {
+  uint8_t bytes = get_bytes(input);
+
+  addbyte(p, 0x80 | bytes);
+  add_variable(p, input, bytes);
 
   for (int i=stack[sp].next_usage - stack[sp].report_count; i<stack[sp].next_usage; i++) {
 #ifdef DESKTOP_ONLY
@@ -374,15 +402,19 @@ void hid_pop(uint8_t **p) {
   addbyte(p, 0xb4);
 }
 
-void hid_usage_min(uint8_t **p, uint8_t min) {
-  addbyte(p, 0x19);
-  addbyte(p, min);
+void hid_usage_min(uint8_t **p, uint32_t min) {
+  int bytes = get_bytes(min);
+
+  addbyte(p, 0x18 | bytes);
+  add_variable(p, min, bytes);
   stack[sp].usage_min = min;
 }
 
-void hid_usage_max(uint8_t **p, uint8_t max) {
-  addbyte(p, 0x29);
-  addbyte(p, max);
+void hid_usage_max(uint8_t **p, uint32_t max) {
+  int bytes = get_bytes(max);
+
+  addbyte(p, 0x28 | bytes);
+  add_variable(p, max, bytes);
   for (int n=stack[sp].usage_min; n<= max; n++) {
     stack[sp].usage[stack[sp].next_usage++] = n;
   }

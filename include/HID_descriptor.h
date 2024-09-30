@@ -96,6 +96,7 @@ uint8_t *_makeJoystickDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t 
   makeJoystickDescriptor(reportID, bitsPerAxis, axisCount, hatCount, buttonCount, buffer, bufferSize);
   return buffer;
 }
+
 void makeKeyboardDescriptor(uint8_t reportID, uint8_t *buffer, uint *bufferSize) {
   extern uint16_t total_bits[];
   uint8_t *p = buffer+*bufferSize;
@@ -134,9 +135,9 @@ void makeKeyboardDescriptor(uint8_t reportID, uint8_t *buffer, uint *bufferSize)
 
     hid_usage_page(&p, HID_USAGE_PAGE_KEYBOARD);
       hid_usage_min(&p, 0);
-      hid_usage_max(&p, 255);// ,2);
+      hid_usage_max(&p, 255);
       hid_logical_min(&p, 0);
-      hid_logical_max(&p, 255);//,2);
+      hid_logical_max(&p, 255);
       hid_report_count(&p, 6);
       hid_report_size(&p, 8);
       hid_input(&p, HID_DATA | HID_ARRAY | HID_ABSOLUTE);
@@ -190,7 +191,7 @@ void makeMouseDescriptor(uint8_t reportID, uint8_t *buffer, uint *bufferSize) {
         hid_input(&p, HID_DATA | HID_VARIABLE | HID_RELATIVE);
 
       hid_usage_page(&p, HID_USAGE_PAGE_CONSUMER);
-        hid_usage(&p, HID_USAGE_CONSUMER_AC_PAN);//,2);
+        hid_usage(&p, HID_USAGE_CONSUMER_AC_PAN);
         hid_usage_min(&p, 129);
         hid_usage_max(&p, 127);
         hid_report_count(&p, 1);

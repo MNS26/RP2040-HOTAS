@@ -15,7 +15,7 @@
 #include <WebServer.h>
 #include <LEAmDNS.h>
 #include <SPI.h>
-
+//#include <ArduinoJson.h>
 #ifdef INCLUDE_FALLBACK_INDEX_HTM
 #include "../extras/index_htm.h"
 #endif
@@ -118,9 +118,9 @@ void handleStatus() {
   if (fsOK) {
     fileSystem->info(fs_info);
     json += F("\"true\", \"totalBytes\":\"");
-    json += fs_info.totalBytes;
+    json += F(fs_info.totalBytes);
     json += F("\", \"usedBytes\":\"");
-    json += fs_info.usedBytes;
+    json += F(fs_info.usedBytes);
     json += "\"";
   } else {
     json += "\"false\"";
@@ -583,119 +583,132 @@ void i2cResult() {
   server.send(200, "application/json", jsonString);
 }
 
-void updateHid() {
+
+void HIDGet() {
+  String jsonData;
+  jsonData.reserve(128);
+  jsonData += "{";
+  jsonData += "\"mouse\":"+ (String)(enableMouse? "true":"false") + ",";
+  jsonData += "\"keyboard\":"+ (String)(enableKeyboard? "true":"false") + ",";
+  jsonData += "\"storage\":"+ (String)(enableMsc? "true":"false") + ",";
+  jsonData += "\"usagepage\":"+ (String)hid_usage_page_val + ",";
+  jsonData += "\"usagetype\":"+ (String)hid_usage_val + ",";
+  jsonData += "\"devicename\":\"" +DeviceName + "\",";
+  jsonData += "\"adcresolution\":"+ (String)ADCResolution + ",";
+  jsonData += "\"axisresolution\":"+ (String)AxisResolution + ",";
+  jsonData += "\"axis\":"+ (String)AxisCount + ",";
+  jsonData += "\"buttons\":"+ (String)ButtonCount + ",";
+  jsonData += "\"hats\":"+ (String)HatCount;
+  jsonData += "}";
+  jsonData.trim();
+  server.send(200, "application/json", jsonData);
+}
+void HIDSet() {
   extern void writeSystemINI();
-  extern void readSystemINI();
-  if (server.hasArg("devicename")) {
-    String a = server.arg("devicename");
-    if (a.length()> 0) {
-      DeviceName = a;
-    server.send(200);
-    } else {
-      server.send(200,"text/plain", DeviceName);
-    }
-  }
 
-  if (server.hasArg("adcresolution")) {
-    String a = server.arg("adcresolution");
-    if (a.length()) {
-      if (a.toInt()>0)
-        ADCResolution = a.toInt();
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)ADCResolution);
+  if (server.hasArg("json")) {}
+  else
+  {
+    
+    if (server.hasArg("keyboard")) {
+      String a = server.arg("keyboard");
+      if (a.length()> 0)
+        enableKeyboard = a == "true"? true:false;
     }
-  }
-
-  if (server.hasArg("axisresolution")) {
-    String a = server.arg("axisresolution");
-    if (a.length()) {
-      if (a.toInt()>0)
-        AxisResolution = a.toInt();
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)AxisResolution);
+    if (server.hasArg("mouse")) {
+      String a = server.arg("mouse");
+      if (a.length()> 0)
+        enableMouse = a == "true"? true:false;
     }
-  }
+    if (server.hasArg("storage")) {
+      String a = server.arg("storage");
+      if (a.length()> 0)
+        enableMsc = a == "true"? true:false;
+    }
+    if (server.hasArg("devicename")) {
+      String a = server.arg("devicename");
+      if (a.length()> 0)
+        DeviceName = a;
+    }
 
-  if (server.hasArg("usagepage")) {
-    String a = server.arg("usagepage");
-    if (a.length()) {
-      if (a.toInt()>0) {
-        hid_usage_page_val = a.toInt();
-      } else {
-        hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
+    if (server.hasArg("adcresolution")) {
+      String a = server.arg("adcresolution");
+      if (a.length())
+        if (a.toInt()>0)
+          ADCResolution = a.toInt();
+    }
+
+    if (server.hasArg("axisresolution")) {
+      String a = server.arg("axisresolution");
+      if (a.length())
+        if (a.toInt()>0)
+          AxisResolution = a.toInt();
+    }
+
+    if (server.hasArg("usagepage")) {
+      String a = server.arg("usagepage");
+      if (a.length()) {
+        if (a.toInt()>0) {
+          hid_usage_page_val = a.toInt();
+        } else {
+          hid_usage_page_val = HID_USAGE_PAGE_DESKTOP;
+        }
       }
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)hid_usage_page_val);
     }
-  }
 
-  if (server.hasArg("usage")) {
-    String a = server.arg("usage");
-    if (a.length()) {
-      if (a.toInt()>0) {
-        hid_usage_val = a.toInt();
-      } else {
-        hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
+    if (server.hasArg("usagetype")) {
+      String a = server.arg("usagetype");
+      if (a.length()) {
+        if (a.toInt()>0) {
+          hid_usage_val = a.toInt();
+        } else {
+          hid_usage_val = HID_USAGE_DESKTOP_JOYSTICK;
+        }
       }
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)hid_usage_val);
     }
-  }
 
-  if (server.hasArg("axis")) {
-    String a = server.arg("axis");
-    if (a.length()) {
-      if (a.toInt()>0) {
-        AxisCount = a.toInt();
-      } else {
-        AxisCount = 0;
+    if (server.hasArg("axis")) {
+      String a = server.arg("axis");
+      if (a.length()) {
+        if (a.toInt()>0) {
+          AxisCount = a.toInt();
+        } else {
+          AxisCount = 0;
+        }
       }
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)AxisCount);
-    }
-  }  
+    }  
 
-  if (server.hasArg("buttons")) {
-    String a = server.arg("buttons");
-    if (a.length()) {
-      if (a.toInt()>0) {
-        ButtonCount = a.toInt();
-      } else {
-        ButtonCount = 0;
+    if (server.hasArg("buttons")) {
+      String a = server.arg("buttons");
+      if (a.length()) {
+        if (a.toInt()>0) {
+          ButtonCount = a.toInt();
+        } else {
+          ButtonCount = 0;
+        }
       }
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)ButtonCount);
     }
-  }
 
-  if (server.hasArg("hats")) {
-    String a = server.arg("hats");
-    if (a.length()) {
-      if (a.toInt()>0) {
-        HatCount = a.toInt();
-      } else {
-        HatCount = 0;
+    if (server.hasArg("hats")) {
+      String a = server.arg("hats");
+      if (a.length()) {
+        if (a.toInt()>0) {
+          HatCount = a.toInt();
+        } else {
+          HatCount = 0;
+        }
       }
-      server.send(200);
-    } else {
-      server.send(200,"text/plain",(String)HatCount);
     }
   }
-
-  if (server.hasArg("restart")) {
-    server.send(200);
-    writeSystemINI();
-    setupDescripor();
-    setUSB(false);
-  }
+  writeSystemINI();
+  server.send(200);
 }
 
+void restartHid() {
+  setupDescriptor();
+  setUSB(false);
+  server.send(200);
+}
 
 // Check if header is present and correct
 bool is_authenticated() {
@@ -794,7 +807,12 @@ void setupWifi() {
 
   server.on("/settings",[](){if(handleFileRead(F("/settings/settings.html"))) {return;}});
 
-  server.on("/settings/updatehid",updateHid);
+  server.on("/settings/hid/get", HIDGet);
+  server.on("/settings/hid/set", HIDSet);
+  server.on("/settings/hid/restart",restartHid);
+
+  //server.on("/settings/update/ini",updateIni);
+  //server.on("/settings/update/hid",restartHid);
 
   // Filesystem status
   server.on("/status", HTTP_GET, handleStatus);
@@ -802,7 +820,8 @@ void setupWifi() {
   server.on("/list", HTTP_GET, handleFileList);
 
   // Load editor
-  server.on("/editor", handleEditorLogin);
+  server.on("/editor", HTTP_GET, handleGetEdit);
+  //server.on("/editor", handleEditorLogin);
   //server.on("/edit", HTTP_GET, handleGetEdit);
   // Create file
   server.on("/edit", HTTP_PUT, handleFileCreate);
@@ -814,7 +833,7 @@ void setupWifi() {
   // - second callback handles file upload at that location
   server.on("/edit", HTTP_POST, replyOK, handleFileUpload);
 
-  server.on("/edit/index.html", [](){if (!is_authenticated()) {server.send(403);return;} handleGetEdit();});
+  //server.on("/edit/index.html", [](){if (!is_authenticated()) {server.send(403);return;} handleGetEdit();});
 
   server.on("/",[](){if(handleFileRead(F("/index.html"))) {return;}});
   server.on("/pinout",[](){if(handleFileRead(F("/pinout/pinout.html"))) {return;}});

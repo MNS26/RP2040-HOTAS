@@ -70,7 +70,11 @@
 		"hid_descriptor.h": "c",
 		"hid_minimal.h": "c",
 		"stdio.h": "c",
-		"hid.h": "c"
+		"hid.h": "c",
+		"hid_device.h": "c",
+		"fstream": "cpp",
+		"*.impl": "cpp",
+		"stop_token": "cpp"
 	},
 	"C_Cpp.dimInactiveRegions": true,
   "editor.insertSpaces": true,
