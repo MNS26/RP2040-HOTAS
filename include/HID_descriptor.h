@@ -1,4 +1,3 @@
-#include "hid.h"
 
 void makeJoystickDescriptor(uint8_t reportID, uint8_t bitsPerAxis, uint8_t axisCount,uint8_t hatCount, uint8_t buttonCount, uint8_t *buffer, uint *bufferSize) {
   extern uint16_t axis_start[];

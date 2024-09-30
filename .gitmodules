@@ -1,0 +1,6 @@
+[submodule "no-OS-FatFS"]
+	path = lib/no-OS-FatFS
+	url = https://github.com/carlk3/no-OS-FatFS-SD-SPI-RPi-Pico.git
+[submodule "freertos"]
+	path = freertos
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel/

@@ -16,7 +16,7 @@
 
 class IniConfig {
 public:
-  IniConfig(FS* sd);
+  IniConfig(FS* fs);
   void open(const char* filepath);
 
   String read(const char* section, const char* key);

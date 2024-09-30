@@ -1,7 +1,7 @@
 // Things shared by the pro and std versions.
 #pragma once
 
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <assert.h>
 
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Arduino.h>
+//#include <Arduino.h>
 
 
 namespace x52 {
@@ -19,8 +19,8 @@ public:
 		unsigned long elapsed = now - m_PrevLogTime;
 		if (elapsed < LOG_PERIOD_MILLIS)
 			return;
-		Serial.print("Updates per second: ");
-		Serial.println(double(m_NumUpdates) / double(elapsed) * 1000.0);
+		//Serial.print("Updates per second: ");
+		//Serial.println(double(m_NumUpdates) / double(elapsed) * 1000.0);
 		m_NumUpdates = 0;
 		m_PrevLogTime = now;
 	}

@@ -318,15 +318,18 @@ public:
 	// Call Setup from the setup function of your Arduino project to initialize
 	// a FakeThrottle instance.
 	void setup() {
-		pinMode(PIN_C01, OUTPUT_12MA);
-		pinMode(PIN_C02, OUTPUT_12MA);
+		gpio_set_dir(PIN_C01, true);
+//		gpio_set_drive_strength(PIN_C01, GPIO_DRIVE_STRENGTH_12MA);
+		gpio_set_dir(PIN_C02, true);
+//		gpio_set_drive_strength(PIN_C02, GPIO_DRIVE_STRENGTH_12MA);
+
 		// On the teensy the digitalWrite seems to work only after pinMode.
 		digitalWrite(PIN_C02, LOW);
 #if X52_PRO_IMPROVED_JOYSTICK_CLIENT_DESYNC_DETECTION
 		digitalWrite(PIN_C01, HIGH);
 #endif
-		pinMode(PIN_C03, INPUT);
-		pinMode(PIN_C04, INPUT);
+		gpio_set_dir(PIN_C03, false);
+		gpio_set_dir(PIN_C04, false);
 	}
 
 	// PollJoystickState polls the joystick for its state. It creates a frame
@@ -450,10 +453,10 @@ public:
 	// Call Setup from the setup function of your Arduino project to initialize
 	// a FakeJoystick instance.
 	void setup() {
-		pinMode(PIN_C01, INPUT);
-		pinMode(PIN_C02, INPUT);
-		pinMode(PIN_C03, OUTPUT);
-		pinMode(PIN_C04, OUTPUT);
+		gpio_set_dir(PIN_C01, false);
+		gpio_set_dir(PIN_C02, false);
+		gpio_set_dir(PIN_C01, true);
+		gpio_set_dir(PIN_C01, true);
 		// On the teensy the digitalWrite seems to work only after pinMode.
 		digitalWrite(PIN_C04, LOW);
 	}

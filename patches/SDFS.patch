@@ -1,6 +1,0 @@
-278a279,281
-> #if defined(ARDUINO_ARCH_RP2040)
->         return _opened ? _fd->availableForWrite() : 0;
-> #else
-279a283
-> #endif

@@ -27,9 +27,11 @@
 /** \ingroup group_class
  *  \defgroup ClassDriver_HID Human Interface Device (HID)
  *  @{ */
+#pragma once
 
 #ifndef _TUSB_HID_H_
 #define _TUSB_HID_H_
+#define TU_ATTR_PACKED                __attribute__ ((packed))
 
 //#include "tusb_common.h"
 //#include "tusb_common_modified.h"
@@ -336,6 +338,9 @@ typedef struct TU_ATTR_PACKED
   int8_t  wheel;   /**< Current delta wheel movement on the mouse. */
   int8_t  pan;     // using AC Pan
 } hid_mouse_report_t;
+
+#undef TU_BIT
+#define TU_BIT(n) (1ULL << (n))
 
 /// Standard Mouse Buttons Bitmap
 typedef enum
@@ -891,101 +896,101 @@ enum {
 //  HID_USAGE_DESKTOP_SYSTEM_DISPLAY_LCD_AUTOSCALE          = 0xB7
 //};
 
-/// HID Usage Table - Table 8: Game controls Page
-enum
-{
-  HID_USAGE_GAME_UNDEFINED                                = 0x00,
-  HID_USAGE_GAME_3D_CONTROLLER                            = 0x01,
-  HID_USAGE_GAME_PINBAL_DEVICE                            = 0x02,
-  HID_USAGE_GAME_GUN_DEVICE                               = 0x03,
-  /* 04-1f RESERVED*/
-  HID_USAGE_GAME_POINT_OF_VIEW                            = 0x20,
-  HID_USAGE_GAME_TURN_LR                                  = 0x21,
-  HID_USAGE_GAME_PITCH_FB                                 = 0x22,
-  HID_USAGE_GAME_ROLL_LR                                  = 0x23,
-  HID_USAGE_GAME_MOVE_LR                                  = 0x24,
-  HID_USAGE_GAME_MOVE_FB                                  = 0x25,
-  HID_USAGE_GAME_MOVE_UD                                  = 0x26,
-  HID_USAGE_GAME_LEAN_RL                                  = 0x27,
-  HID_USAGE_GAME_LEAN_FB                                  = 0x28,
-  HID_USAGE_GAME_HEIGHT_POV                               = 0x29,
-  HID_USAGE_GAME_FLIPPER                                  = 0x2A,
-  HID_USAGE_GAME_SECONDARY_FLIPPER                        = 0x2B,
-  HID_USAGE_GAME_BUMP                                     = 0x2C,
-  HID_USAGE_GAME_NEW_GAME                                 = 0x2D,
-  HID_USAGE_GAME_SHOOT_BALL                               = 0x2E,
-  HID_USAGE_GAME_PLAYER                                   = 0x2F,
-  HID_USAGE_GAME_GUN_BOLT                                 = 0x30,
-  HID_USAGE_GAME_GUN_CLIP                                 = 0x31,
-  HID_USAGE_GAME_GUN_SELECTOR                             = 0x32,
-  HID_USAGE_GAME_GUN_SINGLE_SHOT                          = 0x33,
-  HID_USAGE_GAME_GUN_BURST                                = 0x34,
-  HID_USAGE_GAME_GUN_AUTOMATIC                            = 0x35,
-  HID_USAGE_GAME_GUN_SAFETY                               = 0x36,
-  HID_USAGE_GAME_GAMEPAD_FIRE_JUMP                        = 0x37,
-  /* NO 38 */
-  HID_USAGE_GAME_GAMEPAD_TRIGGER                          = 0x39
-  /* 3A-FFFF RESERVED*/
-};
+// /// HID Usage Table - Table 8: Game controls Page
+// enum
+// {
+//   HID_USAGE_GAME_UNDEFINED                                = 0x00,
+//   HID_USAGE_GAME_3D_CONTROLLER                            = 0x01,
+//   HID_USAGE_GAME_PINBAL_DEVICE                            = 0x02,
+//   HID_USAGE_GAME_GUN_DEVICE                               = 0x03,
+//   /* 04-1f RESERVED*/
+//   HID_USAGE_GAME_POINT_OF_VIEW                            = 0x20,
+//   HID_USAGE_GAME_TURN_LR                                  = 0x21,
+//   HID_USAGE_GAME_PITCH_FB                                 = 0x22,
+//   HID_USAGE_GAME_ROLL_LR                                  = 0x23,
+//   HID_USAGE_GAME_MOVE_LR                                  = 0x24,
+//   HID_USAGE_GAME_MOVE_FB                                  = 0x25,
+//   HID_USAGE_GAME_MOVE_UD                                  = 0x26,
+//   HID_USAGE_GAME_LEAN_RL                                  = 0x27,
+//   HID_USAGE_GAME_LEAN_FB                                  = 0x28,
+//   HID_USAGE_GAME_HEIGHT_POV                               = 0x29,
+//   HID_USAGE_GAME_FLIPPER                                  = 0x2A,
+//   HID_USAGE_GAME_SECONDARY_FLIPPER                        = 0x2B,
+//   HID_USAGE_GAME_BUMP                                     = 0x2C,
+//   HID_USAGE_GAME_NEW_GAME                                 = 0x2D,
+//   HID_USAGE_GAME_SHOOT_BALL                               = 0x2E,
+//   HID_USAGE_GAME_PLAYER                                   = 0x2F,
+//   HID_USAGE_GAME_GUN_BOLT                                 = 0x30,
+//   HID_USAGE_GAME_GUN_CLIP                                 = 0x31,
+//   HID_USAGE_GAME_GUN_SELECTOR                             = 0x32,
+//   HID_USAGE_GAME_GUN_SINGLE_SHOT                          = 0x33,
+//   HID_USAGE_GAME_GUN_BURST                                = 0x34,
+//   HID_USAGE_GAME_GUN_AUTOMATIC                            = 0x35,
+//   HID_USAGE_GAME_GUN_SAFETY                               = 0x36,
+//   HID_USAGE_GAME_GAMEPAD_FIRE_JUMP                        = 0x37,
+//   /* NO 38 */
+//   HID_USAGE_GAME_GAMEPAD_TRIGGER                          = 0x39
+//   /* 3A-FFFF RESERVED*/
+// };
 
-/// HID Usage Table: Consumer Page (0x0C)
-/// Only contains controls that supported by Windows (whole list is too long)
-enum
-{
-  // Generic Control
-  HID_USAGE_CONSUMER_CONTROL                           = 0x0001,
+// /// HID Usage Table: Consumer Page (0x0C)
+// /// Only contains controls that supported by Windows (whole list is too long)
+// enum
+// {
+//   // Generic Control
+//   HID_USAGE_CONSUMER_CONTROL                           = 0x0001,
 
-  // Power Control
-  HID_USAGE_CONSUMER_POWER                             = 0x0030,
-  HID_USAGE_CONSUMER_RESET                             = 0x0031,
-  HID_USAGE_CONSUMER_SLEEP                             = 0x0032,
+//   // Power Control
+//   HID_USAGE_CONSUMER_POWER                             = 0x0030,
+//   HID_USAGE_CONSUMER_RESET                             = 0x0031,
+//   HID_USAGE_CONSUMER_SLEEP                             = 0x0032,
 
-  // Screen Brightness
-  HID_USAGE_CONSUMER_BRIGHTNESS_INCREMENT              = 0x006F,
-  HID_USAGE_CONSUMER_BRIGHTNESS_DECREMENT              = 0x0070,
+//   // Screen Brightness
+//   HID_USAGE_CONSUMER_BRIGHTNESS_INCREMENT              = 0x006F,
+//   HID_USAGE_CONSUMER_BRIGHTNESS_DECREMENT              = 0x0070,
 
-  // These HID usages operate only on mobile systems (battery powered) and
-  // require Windows 8 (build 8302 or greater).
-  HID_USAGE_CONSUMER_WIRELESS_RADIO_CONTROLS           = 0x000C,
-  HID_USAGE_CONSUMER_WIRELESS_RADIO_BUTTONS            = 0x00C6,
-  HID_USAGE_CONSUMER_WIRELESS_RADIO_LED                = 0x00C7,
-  HID_USAGE_CONSUMER_WIRELESS_RADIO_SLIDER_SWITCH      = 0x00C8,
+//   // These HID usages operate only on mobile systems (battery powered) and
+//   // require Windows 8 (build 8302 or greater).
+//   HID_USAGE_CONSUMER_WIRELESS_RADIO_CONTROLS           = 0x000C,
+//   HID_USAGE_CONSUMER_WIRELESS_RADIO_BUTTONS            = 0x00C6,
+//   HID_USAGE_CONSUMER_WIRELESS_RADIO_LED                = 0x00C7,
+//   HID_USAGE_CONSUMER_WIRELESS_RADIO_SLIDER_SWITCH      = 0x00C8,
 
-  // Media Control
-  HID_USAGE_CONSUMER_PLAY_PAUSE                        = 0x00CD,
-  HID_USAGE_CONSUMER_SCAN_NEXT                         = 0x00B5,
-  HID_USAGE_CONSUMER_SCAN_PREVIOUS                     = 0x00B6,
-  HID_USAGE_CONSUMER_STOP                              = 0x00B7,
-  HID_USAGE_CONSUMER_VOLUME                            = 0x00E0,
-  HID_USAGE_CONSUMER_MUTE                              = 0x00E2,
-  HID_USAGE_CONSUMER_BASS                              = 0x00E3,
-  HID_USAGE_CONSUMER_TREBLE                            = 0x00E4,
-  HID_USAGE_CONSUMER_BASS_BOOST                        = 0x00E5,
-  HID_USAGE_CONSUMER_VOLUME_INCREMENT                  = 0x00E9,
-  HID_USAGE_CONSUMER_VOLUME_DECREMENT                  = 0x00EA,
-  HID_USAGE_CONSUMER_BASS_INCREMENT                    = 0x0152,
-  HID_USAGE_CONSUMER_BASS_DECREMENT                    = 0x0153,
-  HID_USAGE_CONSUMER_TREBLE_INCREMENT                  = 0x0154,
-  HID_USAGE_CONSUMER_TREBLE_DECREMENT                  = 0x0155,
+//   // Media Control
+//   HID_USAGE_CONSUMER_PLAY_PAUSE                        = 0x00CD,
+//   HID_USAGE_CONSUMER_SCAN_NEXT                         = 0x00B5,
+//   HID_USAGE_CONSUMER_SCAN_PREVIOUS                     = 0x00B6,
+//   HID_USAGE_CONSUMER_STOP                              = 0x00B7,
+//   HID_USAGE_CONSUMER_VOLUME                            = 0x00E0,
+//   HID_USAGE_CONSUMER_MUTE                              = 0x00E2,
+//   HID_USAGE_CONSUMER_BASS                              = 0x00E3,
+//   HID_USAGE_CONSUMER_TREBLE                            = 0x00E4,
+//   HID_USAGE_CONSUMER_BASS_BOOST                        = 0x00E5,
+//   HID_USAGE_CONSUMER_VOLUME_INCREMENT                  = 0x00E9,
+//   HID_USAGE_CONSUMER_VOLUME_DECREMENT                  = 0x00EA,
+//   HID_USAGE_CONSUMER_BASS_INCREMENT                    = 0x0152,
+//   HID_USAGE_CONSUMER_BASS_DECREMENT                    = 0x0153,
+//   HID_USAGE_CONSUMER_TREBLE_INCREMENT                  = 0x0154,
+//   HID_USAGE_CONSUMER_TREBLE_DECREMENT                  = 0x0155,
 
-  // Application Launcher
-  HID_USAGE_CONSUMER_AL_CONSUMER_CONTROL_CONFIGURATION = 0x0183,
-  HID_USAGE_CONSUMER_AL_EMAIL_READER                   = 0x018A,
-  HID_USAGE_CONSUMER_AL_CALCULATOR                     = 0x0192,
-  HID_USAGE_CONSUMER_AL_LOCAL_BROWSER                  = 0x0194,
+//   // Application Launcher
+//   HID_USAGE_CONSUMER_AL_CONSUMER_CONTROL_CONFIGURATION = 0x0183,
+//   HID_USAGE_CONSUMER_AL_EMAIL_READER                   = 0x018A,
+//   HID_USAGE_CONSUMER_AL_CALCULATOR                     = 0x0192,
+//   HID_USAGE_CONSUMER_AL_LOCAL_BROWSER                  = 0x0194,
 
-  // Browser/Explorer Specific
-  HID_USAGE_CONSUMER_AC_SEARCH                         = 0x0221,
-  HID_USAGE_CONSUMER_AC_HOME                           = 0x0223,
-  HID_USAGE_CONSUMER_AC_BACK                           = 0x0224,
-  HID_USAGE_CONSUMER_AC_FORWARD                        = 0x0225,
-  HID_USAGE_CONSUMER_AC_STOP                           = 0x0226,
-  HID_USAGE_CONSUMER_AC_REFRESH                        = 0x0227,
-  HID_USAGE_CONSUMER_AC_BOOKMARKS                      = 0x022A,
+//   // Browser/Explorer Specific
+//   HID_USAGE_CONSUMER_AC_SEARCH                         = 0x0221,
+//   HID_USAGE_CONSUMER_AC_HOME                           = 0x0223,
+//   HID_USAGE_CONSUMER_AC_BACK                           = 0x0224,
+//   HID_USAGE_CONSUMER_AC_FORWARD                        = 0x0225,
+//   HID_USAGE_CONSUMER_AC_STOP                           = 0x0226,
+//   HID_USAGE_CONSUMER_AC_REFRESH                        = 0x0227,
+//   HID_USAGE_CONSUMER_AC_BOOKMARKS                      = 0x022A,
 
-  // Mouse Horizontal scroll
-  HID_USAGE_CONSUMER_AC_PAN                            = 0x0238,
-};
+//   // Mouse Horizontal scroll
+//   HID_USAGE_CONSUMER_AC_PAN                            = 0x0238,
+// };
 
 /*--------------------------------------------------------------------
  * ASCII to KEYCODE Conversion
