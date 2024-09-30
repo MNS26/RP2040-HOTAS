@@ -21,7 +21,7 @@ jobs:
         run: pip install --upgrade platformio
       - name: create dummy wifi file
         run: |
-          locate platformio.ini
+          echo $pwd
           touch /home/runner/work/RP2040-HOTAS/RP2040-HOTAS/WIFI_CR
           echo '[wifi]\nAP=\n; LINUX\n	-D STASSID=\"AP\"\n	-D STAPSK=\"PASSWORD\"\n\n; WINDOWS\n;	-D STASSID="AP"\n;	-D STAPSK="PASSWORD"' > /home/runner/work/RP2040-HOTAS/RP2040-HOTAS/WIFI_CR
       - name: Build PlatformIO Project
