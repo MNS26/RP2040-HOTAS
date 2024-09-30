@@ -1,5 +1,5 @@
 /*== JOYSTICK ==*/
-
+#define availableSpaceForWrite() availableForWrite() 
 #define MAX_USB_PACKET_SIZE 64
 #define MAX_HID_DESCRIPTOR_SIZE 4096
 
