@@ -14,6 +14,7 @@
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <LEAmDNS.h>
+#include <string>
 #include <SPI.h>
 //#include <ArduinoJson.h>
 #ifdef INCLUDE_FALLBACK_INDEX_HTM
@@ -118,9 +119,9 @@ void handleStatus() {
   if (fsOK) {
     fileSystem->info(fs_info);
     json += F("\"true\", \"totalBytes\":\"");
-    json += F(fs_info.totalBytes);
+    json += static_cast<unsigned long>(fs_info.totalBytes);
     json += F("\", \"usedBytes\":\"");
-    json += F(fs_info.usedBytes);
+    json += static_cast<unsigned long>(fs_info.usedBytes);
     json += "\"";
   } else {
     json += "\"false\"";
