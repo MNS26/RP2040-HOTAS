@@ -48,7 +48,7 @@
 #define USB_PID   0xF00A
 #endif
 #define USB_VID   0x2e8a
-#define USB_BCD   0x0200
+#define USB_BCD   0x0110
 #define USB_LANGUAGE 0x0409 // default is English
 #define USB_MANUFACTURER "Raspberry Pi"
 #define USB_PRODUCT "Pico W"
@@ -103,13 +103,24 @@ uint8_t const * tud_hid_descriptor_report_cb(uint8_t instance)
 // Configuration Descriptor
 //--------------------------------------------------------------------+
 
+//#define EPNUM_CDC_NOTIF   1
+//#define EPNUM_CDC         2
+//#define EPNUM_PTP         3
+//#define EPNUM_HID         4
+#if !CFG_TUD_CDC
+#undef TUD_CDC_DESC_LEN
+#define TUD_CDC_DESC_LEN 0
+#endif
+#if !CFG_TUD_PTP
+#undef TUD_PTP_DESC_LEN
+#define TUD_PTP_DESC_LEN 0
+#endif
+#if !CFG_TUD_HID
+#undef TUD_HID_DESC_LEN
+#define TUD_HID_DESC_LEN 0
+#endif
 
-#define EPNUM_CDC_NOTIF   1
-#define EPNUM_CDC_OUT     2
-#define EPNUM_CDC_IN      2
-#define EPNUM_HID         3
-
-#define  CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + 1*TUD_HID_DESC_LEN)
+#define  CONFIG_TOTAL_LEN  (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_PTP_DESC_LEN + 1*TUD_HID_DESC_LEN)
 
 
 //uint8_t desc_configuration[256];
@@ -119,12 +130,19 @@ uint8_t desc_configuration[] =
   // Config number, interface count, string index, total length, attribute, power in mA
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 500),
 
+#if CFG_TUD_CDC
   // Interface number, string index, EP notification address and size, EP data address (out, in) and size
-  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, 0x80 | EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, 0x80 | EPNUM_CDC_IN, 64),
-
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, 0x80 | EPNUM_CDC_NOTIF, 8, EPNUM_CDC, 0x80 | EPNUM_CDC, 64),
+#endif
+#if CFG_TUD_PTP
+//  // Interface number, string index, EP notification address, EP In, EP out, EP size, EP notification size
+  TUD_PTP_DESCRIPTOR(ITF_NUM_PTP, 5,0x80|EPNUM_PTP_NOTIF, EPNUM_PTP, 0x80|EPNUM_PTP, 64, 8)
+#endif
+#if CFG_TUD_HID
   // Interface number, string index, protocol, report descriptor len, EP In address, size & polling interval
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID, 5, HID_ITF_PROTOCOL_NONE, usb_hid_descriptor_length , 0x80 | EPNUM_HID, CFG_TUD_HID_EP_BUFSIZE, 5),
-  };
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID, 6, HID_ITF_PROTOCOL_NONE, usb_hid_descriptor_length , 0x80 | EPNUM_HID, CFG_TUD_HID_EP_BUFSIZE, 5),
+#endif
+};
 
 
 
@@ -136,7 +154,7 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
   (void) index; // for multiple configurations
 
   // This example use the same configuration for both high and full speed mode
-  return desc_configuration;
+  return (uint8_t const *) &desc_configuration;
 }
 
 //--------------------------------------------------------------------+
@@ -152,7 +170,8 @@ char const *string_desc_arr[] =
   "TinyUSB Device",              // 2: Product
   NULL,                          // 3: Serials will use unique ID if possible
   "TinyUSB CDC",                 // 4: CDC Interface
-  "TinyUSB HID",                 // 5: HID Interface
+  "TinyUSB PTP",                 // 5: PTP Interface
+  "TinyUSB HID",                 // 6: HID Interface
 };
 
 static uint16_t _desc_str[32 + 1];

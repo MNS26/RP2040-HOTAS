@@ -1,306 +1,195 @@
 
+// SPI Defines
+// We are going to use SPI 0, and allocate it to the following GPIO pins
+// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
+#define SPI_PORT spi0
+#define PIN_MISO 16
+#define PIN_CS   17
+#define PIN_SCK  18
+#define PIN_MOSI 19
+
+// I2C defines
+// This example will use I2C0 on GPIO8 (SDA) and GPIO9 (SCL) running at 400KHz.
+// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
+#define I2C_PORT i2c0
+#define I2C_SDA 8
+#define I2C_SCL 9
+
 #define MAX_USB_PACKET_SIZE 64
 #define MAX_HID_DESCRIPTOR_SIZE 4096
-#define VID 0x1209
-#define PID 0xedcc
+
+//#define VID 0x1209
+//#define PID 0xedcc
+#define VID 0x2e8a
+#define PID 0x0003
 #define USB_BCD   0x0200
 #define USB_LANGUAGE 0x0409 // default is English
 #define USB_MANUFACTURER "Raspberry Pi"
 #define USB_PRODUCT "Pico W"
 
 // thechnically there is no ID cap since its limited to the descriptor size but... for ease of use we set it
-#define MAX_REPORT_ID 31 
+#define MAX_REPORT_ID 31
 #define MAX_OUTPUTS 256
+
+//#define PICO_DEFAULT_LED_PIN 25
+
 #include <stdint.h>
+#include <string>
 #include <stdbool.h>
 #include <stdlib.h>
+
 #include <pico/stdlib.h>
 #include <pico/multicore.h>
-#include "pico/async_context_freertos.h"
-#include <FreeRTOS.h>
-#include <task.h>
-#include <semphr.h>
 
-#ifdef CYW43_WL_GPIO_LED_PIN
+#ifdef RASPBERRYPI_PICO_W 
 #include "pico/cyw43_arch.h"
 #endif
 
-
-#include "pico/stdlib.h"
 #include "hardware/spi.h"
-#include "hardware/i2c.h"
+//#include "hardware/i2c.h"
 //#include "hardware/pio.h"
 //#include "hardware/timer.h"
 //#include "hardware/clocks.h"
+#include "lib/TinyUSB/hw/bsp/board_api.h"
+
 #include "Arduino-wrapper.h"
-#include "hid.h" //still need to strip it
-#include "hid_minimal_report.h"
-#include "HID_descriptor.h"
-#include "bsp/board_api.h"
+
+//==== USB ====
+#include "tusb_config.h"
+#include "tusb.h"
+
+//==== HID ====
+//#include "hid.h" //still need to strip it
+//#include "hid_minimal_report.h"
+//#include "HID_descriptor.h"
+//#include "usb_descriptors.h"
 
 
-#include "usbd_device.h"
-#include "usbd_cdc.h"
-#include "usbd_hid.h"
-#include "usbd_msc.h"
-#include "usbd_mtp.h"
+//=============
 
 #include "lib/X52-HOTAS/src/x52_pro.h"
 #include "lib/X52-HOTAS/src/x52_util.h"
 
+
+//==== SD CARD STUFF ====
+#include "hw_config.h"
+#include "f_util.h"
+#include "ff.h"
+#include "diskio.h"
+//#include "iniConfig-old.h"
+//#include "yaml.hpp"
+
 #include "main.h"
 
-// Priorities of our threads - higher numbers are higher priority
-#define BLINK_TASK_PRIORITY     ( tskIDLE_PRIORITY + 1UL )
-#define MAIN_TASK_PRIORITY      ( tskIDLE_PRIORITY + 2UL )
-#define USB_TASK_PRIORITY       ( tskIDLE_PRIORITY + 3UL )
-#define WORKER_TASK_PRIORITY    ( tskIDLE_PRIORITY + 2UL )
+//#define LED_PIN 25
 
-// Stack sizes of our threads in words (4 bytes)
-#define MAIN_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
-#define BLINK_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
-#define WORKER_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
-#define USB_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
+int main()
+{
+  board_init();
 
-
-static async_context_freertos_t async_context_instance;
-// Create an async context
-static async_context_t *example_async_context(void) {
-    async_context_freertos_config_t config = async_context_freertos_default_config();
-    config.task_priority = WORKER_TASK_PRIORITY; // defaults to ASYNC_CONTEXT_DEFAULT_FREERTOS_TASK_PRIORITY
-    config.task_stack_size = WORKER_TASK_STACK_SIZE; // defaults to ASYNC_CONTEXT_DEFAULT_FREERTOS_TASK_STACK_SIZE
-    if (!async_context_freertos_init(&async_context_instance, &config))
-        return NULL;
-    return &async_context_instance.core;
-}
-
-// Turn led on or off
-static void pico_set_led(bool led_on) {
-#if defined PICO_DEFAULT_LED_PIN
-    gpio_put(PICO_DEFAULT_LED_PIN, led_on);
-#elif defined(CYW43_WL_GPIO_LED_PIN)
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-#endif
-}
-
-// Initialise led
-static void pico_init_led(void) {
-#if defined PICO_DEFAULT_LED_PIN
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-#elif defined(CYW43_WL_GPIO_LED_PIN)
-    hard_assert(cyw43_arch_init() == PICO_OK);
-    pico_set_led(false); // make sure cyw43 is started
-#endif
-}
-
-void blink_task(__unused void *params) {
-    bool on = false;
-    printf("blink_task starts\n");
-    pico_init_led();
-    auto print_time = millis();
-
-    for (;;) {
-#if configNUMBER_OF_CORES > 1
-        static int last_core_id = -1;
-        if (portGET_CORE_ID() != last_core_id) {
-            last_core_id = portGET_CORE_ID();
-            printf("BLINK task is on core %d, last print was %dms ago (intended time was %dms)\n", last_core_id, (millis() - print_time), (blink_interval_ms / portTICK_PERIOD_MS));
-        }
-#endif
-        print_time = millis();
-        pico_set_led(on);
-        on = !on;
-#if LED_BUSY_WAIT
-        // You shouldn't usually do this. We're just keeping the thread busy,
-        // experiment with BLINK_TASK_PRIORITY and LED_BUSY_WAIT to see what happens
-        // if BLINK_TASK_PRIORITY is higher than TEST_TASK_PRIORITY main_task won't get any free time to run
-        // unless configNUMBER_OF_CORES > 1
-        busy_wait_ms(blink_interval_ms);
-#else
-//        vTaskDelay(blink_interval_ms/portTICK_PERIOD_MS);
-        sleep_ms(blink_interval_ms / portTICK_PERIOD_MS);
-#endif
-    }
-}
-
-
-void hid_task(__unused void *params) {
   // init device stack on configured roothub port
-  tud_init(BOARD_TUD_RHPORT);
+  tusb_rhport_init_t dev_init = {
+    .role = TUSB_ROLE_DEVICE,
+    .speed = TUSB_SPEED_AUTO
+  };
+
+  // init device stack on configured roothub port
+  tusb_init(BOARD_TUD_RHPORT, &dev_init);
+//  tud_init(BOARD_TUD_RHPORT);
 
   if (board_init_after_tusb) {
     board_init_after_tusb();
   }
 
-  setup_hid_descriptor();
-  setup_usb_configurator();
-  usb_hid.begin();
-  auto print_time = millis();
-
-  for (;;) {
-#if configNUMBER_OF_CORES > 1
-    static int last_core_id = -1;
-    if (portGET_CORE_ID() != last_core_id) {
-      last_core_id = portGET_CORE_ID();
-            printf("HID task is on core %d, last print was %dms ago (intended time was %d)\n", last_core_id, (millis() - print_time), (100 / portTICK_PERIOD_MS));
-    }
-#endif
-    print_time = millis();
-    tud_task();
-
-//    readyToUpdate[1]=true;
-    if (USBDevice.ready()) {
-      if (readyToUpdate[report] ){
-        usb_hid.sendReport(report, (void *)reports[report], total_bits[1]/8);
-        memcpy(old_reports[report],(void *)reports[report],total_bits[1]/8);
-        memset((void *)reports[report], 0, sizeof(reports[report]));
-        readyToUpdate[report] = false;
-      }
-      report++;
-      if (report >= IdCount)
-        report = 1;
-    }
-  sleep_ms(100 / portTICK_PERIOD_MS);
-//  vTaskDelay(100/portTICK_PERIOD_MS);
-  }
-}
-#define USE_ASYNC_WORKER
-#ifdef USE_ASYNC_WORKER
-// async workers run in their own thread when using async_context_freertos_t with priority WORKER_TASK_PRIORITY
-auto print_time = millis();
-static void do_work(async_context_t *context, async_at_time_worker_t *worker) {
-    async_context_add_at_time_worker_in_ms(context, worker, 10000);
-    static uint32_t count = 0;
-//    printf("Hello from worker count=%u\n", count++);
-#if configNUMBER_OF_CORES > 1
-        static int last_core_id = -1;
-        if (portGET_CORE_ID() != last_core_id) {
-            last_core_id = portGET_CORE_ID();
-            printf("worker is on core %d, last print was %ds ago (inended time was %ds)\n", last_core_id, (millis() - print_time)/1000,(3000 / portTICK_PERIOD_MS));
-        }
-#endif
-  print_time = millis();
-
-}
-async_at_time_worker_t worker_timeout = { .do_work = do_work };
-#endif
-
-void main_task(__unused void *params) {
-#ifdef USE_ASYNC_WORKER
-    async_context_t *context = example_async_context();
-    // start the worker running
-    async_context_add_at_time_worker_in_ms(context, &worker_timeout, 0);
-#endif
-    // start the led blinking
-  xTaskCreate(blink_task, "BlinkThread", BLINK_TASK_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
-  xTaskCreate(hid_task, "HidThread", USB_TASK_STACK_SIZE, NULL, USB_TASK_PRIORITY, NULL);
-    auto print_time = millis();
-    while (true) {
-#if configNUMBER_OF_CORES > 1
-        static int last_core_id = -1;
-        if (portGET_CORE_ID() != last_core_id) {
-            last_core_id = portGET_CORE_ID();
-            printf("main task is on core %d, last print was %ds ago (inended time was %ds)\n", last_core_id, (millis() - print_time)/1000,(3000 / portTICK_PERIOD_MS));
-        }
-#endif
-        print_time = millis();
-        sleep_ms(3000 / portTICK_PERIOD_MS);
-//        vTaskDelay(3000 / portTICK_PERIOD_MS);
-    }
-#ifdef USE_ASYNC_WORKER
-    async_context_deinit(context);
-#endif
-}
-
-
-void vLaunch( void) {
-  TaskHandle_t Maintask;
-  //TaskHandle_t Usbtask;
-  //TaskHandle_t Blinktask;
-
-  xTaskCreate(main_task, "MainThread", MAIN_TASK_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, &Maintask);
-  //xTaskCreate(blink_task, "BlinkThread", BLINK_TASK_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, &Blinktask);
-  //xTaskCreate(hid_task, "HidThread", USB_TASK_STACK_SIZE, NULL, USB_TASK_PRIORITY, &Usbtask);
-
-#if configUSE_CORE_AFFINITY && configNUMBER_OF_CORES > 1
-    // we must bind the main task to one core (well at least while the init is called)
-    vTaskCoreAffinitySet(Maintask, 1);
-#endif
-
-    /* Start the tasks and timer running. */
-    vTaskStartScheduler();
-}
-
-int main()
-{
-  board_init();
   stdio_init_all();
-//  pSD = sd_get_by_num(0);
 
+#if defined( CYW43_INCLUDED_CYW43_H)
+  // For Pico W devices we need to initialise the driver etc
+  auto rc = cyw43_arch_init();
+  while (!cyw43_is_initialized(&cyw43_state)) {__nop();}// wait
+  hard_assert(rc == PICO_OK);
+#endif
+#if defined(PICO_DEFAULT_LED_PIN)
+    // A device like Pico that uses a GPIO for the LED will define PICO_DEFAULT_LED_PIN
+    // so we can use normal GPIO functionality to turn the led on and off
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    //return PICO_OK;
+#endif
   // SPI initialisation. This example will use SPI at 1MHz.
-  spi_init(SPI_PORT, 1000*1000);
-  gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-  gpio_set_function(PIN_CS,   GPIO_FUNC_SIO);
-  gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
-  gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+//  spi_init(spi0,1000 * 1000);
+//  gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);//16
+//  gpio_set_function(PIN_CS,   GPIO_FUNC_SIO);//17
+//  gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);//18
+//  gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);//19
+
     
   // Chip select is active-low, so we'll initialise it to a driven-high state
-  gpio_set_dir(PIN_CS, GPIO_OUT);
-  gpio_put(PIN_CS, 1);
+//  gpio_set_dir(PIN_CS, GPIO_OUT);
+//  gpio_put(PIN_CS, 1);
   // For more examples of SPI use see https://github.com/raspberrypi/pico-examples/tree/master/spi
 
   // I2C Initialisation. Using it at 400Khz.
-  i2c_init(I2C_PORT, 400*1000);
+//  i2c_init(I2C_PORT, 400*1000);
     
-  gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
-  gpio_pull_up(I2C_SDA);
-  gpio_pull_up(I2C_SCL);
+//  gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+//  gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+//  gpio_pull_up(I2C_SDA);
+//  gpio_pull_up(I2C_SCL);
   // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
 
-    /* Configure the hardware ready to run the demo. */
-    const char *rtos_name;
-#if (configNUMBER_OF_CORES > 1)
-    rtos_name = "FreeRTOS SMP";
-#else
-    rtos_name = "FreeRTOS";
-#endif
+  //mount_sdcard();
+  //pSD = sd_get_by_num(0);
+//  fr = f_mount(&fs, "", 1);
+  
+//    if (FR_OK != fr) {
+//    panic("f_mount error: %s (%d)\n", FRESULT_str(fr), fr);
+//  }
 
-#if (configNUMBER_OF_CORES > 1)
-    printf("Starting %s on both cores:\n", rtos_name);
-    vLaunch();
-#elif (RUN_FREE_RTOS_ON_CORE == 1 && configNUMBER_OF_CORES==1)
-    printf("Starting %s on core 1:\n", rtos_name);
-    multicore_launch_core1(vLaunch);
-    while (true);
-#else
-    printf("Starting %s on core 0:\n", rtos_name);
-    vLaunch();
-#endif
-    return 0;
+//  delay(10);
+//  get_config("config/settings.ini");
 
-//  while (true) {
-//    tud_task();
-//    led_blinking_task();
+//  setup_hid_descriptor();
+//  setup_usb_configurator();
+//  usb_hid.begin();
+
+  while (1) {
+//    puts_raw(ini.config().c_str());
+    tud_task();
+    cdc_task();
+    led_blinking_task();
+  
+//    readyToUpdate[1]=true;
+//    if (USBDevice.ready()) {
+//      if (readyToUpdate[report] ){
+//        reports[1][1] = random();
+//        usb_hid.sendReport(report, (void *)reports[report], total_bits[1]/8);
+//        memcpy(old_reports[report],(void *)reports[report],total_bits[1]/8);
+//        memset((void *)reports[report], 0, sizeof(reports[report]));
+//        readyToUpdate[report] = false;
+//      }
+//      report++;
+//      if (report >= IdCount)
+//        report = 1;
 //    }
+//    led_blinking_task();
+//  }
 
 //    hid_task();
-//    cdc_task();
 //        printf("Hello, world!\n");
 //        sleep_ms(1000);
-//    }
+    }
 }
 
+#if false
 
 void setup_hid_descriptor() {
   uint16_t maxBuffSize = MAX_HID_DESCRIPTOR_SIZE;
   if (enableMouse)
     maxBuffSize -= 79;
-//    MaxDeviceCount -= 1;
+
   if (enableKeyboard)
     maxBuffSize -= 67;
-//    MaxDeviceCount -= 1;
 
   // reset the connection
   memset(inputs_id, 0, sizeof(inputs_id));
@@ -366,61 +255,95 @@ void setup_hid_descriptor() {
   }
   free(t_buffer);
 }
-
+#endif
 
 void setup_usb_configurator() {
 
-  USBDevice.detach();
-  USBDevice.clearConfiguration();
+//  USBDevice.detach();
+//  USBDevice.clearConfiguration();
 
-  USBDevice.setID(VID,PID);
-  USBDevice.setManufacturerDescriptor("Raspberry Pi");
-  USBDevice.setProductDescriptor(DeviceName);
-  USBDevice.addStringDescriptor("mtp");
-  USBDevice.addStringDescriptor("MTP");
+//  USBDevice.setID(VID,PID);
+//  USBDevice.setManufacturerDescriptor("Raspberry Pi");
+//  USBDevice.setProductDescriptor(DeviceName.c_str());
+//  USBDevice.addStringDescriptor("mtp");
+//  USBDevice.addStringDescriptor("MTP");
 
-  if (enableCdc) {
-    if (Serial.isValid())
-      USBDevice.addInterface(Serial);
-    else
-      Serial.begin(0);
-  }
-  if (IdCount > 0) {
+//  if (enableCdc) {
+//    if (Serial.isValid())
+//      USBDevice.addInterface(Serial);
+//    else
+//      Serial.begin(0);
+//  }
+//  if (IdCount > 0) {
   //  char name;
   //  name = DeviceName.concat("Mouse/Keyboard");
-    usb_hid.setPollInterval(1);
-    usb_hid.setBootProtocol(HID_ITF_PROTOCOL_NONE);
-    usb_hid.setReportDescriptor(usb_hid_descriptor, usb_hid_descriptor_length);
-    usb_hid.setReportCallback(get_report_callback, set_report_callback);
-  ///  usb_hid.setStringDescriptor(&name);
-    if (usb_hid.isValid())
-      USBDevice.addInterface(usb_hid);
-    else
-      usb_hid.begin();
-  }
-  if (enableMsc) {
-    usb_msc.setID("test", "card", "0.0");
-    usb_msc.setReadWriteCallback(msc_read_cb,msc_write_cb,msc_flush_cb);
-    
+//    usb_hid.setPollInterval(1);
+//    usb_hid.setBootProtocol(HID_ITF_PROTOCOL_NONE);
+//    usb_hid.setReportDescriptor(usb_hid_descriptor, usb_hid_descriptor_length);
+//    usb_hid.setReportCallback(get_report_callback, set_report_callback);
+//  ///  usb_hid.setStringDescriptor(&name);
+//    if (usb_hid.isValid())
+//      USBDevice.addInterface(usb_hid);
+//    else
+//      usb_hid.begin();
+//  }
+//  if (enableMsc) {
+//    usb_msc.setID("test", "card", "0.0");
+//    usb_msc.setReadWriteCallback(msc_read_cb,msc_write_cb,msc_flush_cb);
+
     // Still initialize MSC but tell usb stack that MSC is not ready to read/write
     // If we don't initialize, board will be enumerated as CDC only
-    usb_msc.setUnitReady(false);
-    usb_msc.setCapacity(1024*4096, 512);
+//    usb_msc.setUnitReady(false);
+//    usb_msc.setCapacity(1024*4096, 512);
 
-    usb_msc.begin();
+//    usb_msc.begin();
     //TODO
-  }
-  if(enableMtp){
-    usb_mtp.setStringDescriptor("MTP");
-    USBDevice.addInterface(usb_mtp);
-  }
-  USBDevice.attach();
-
+//  }
+//  if(enableMtp){
+//    usb_mtp.setStringDescriptor("MTP");
+//    USBDevice.addInterface(usb_mtp);
+//  }
+//  USBDevice.attach();
 }
 
 
+//void mount_sdcard() {
+// fr = f_mount(&fs, "", 1);
+//  
+//  if (FR_OK != fr) panic("f_mount error: %s (%d)\n", FRESULT_str(fr), fr);
+//}
 
-
+// im sure there is a better way but this works...
+//void get_config(const char *path) {
+//
+//  f_open(&fil, path, FA_READ);
+//  uint br; // dont really care
+//  assert(&fil);
+//
+//  str_config = "";
+//  str_config.reserve(f_size(&fil));
+//  uint8_t buf[256];
+//
+//  while (!f_eof(&fil))
+//  {
+//    f_read(&fil, buf, sizeof(buf), &br);
+//    str_config.append((char *)buf, br);
+//  }
+//  yaml.parse(str_config);
+////  yaml.getChildNodeValue()
+//  ini.open(&fil,path,FA_READ);
+//  ini.readFile(&fil);
+//  DeviceName         = ini.readString("hid_report","DeviceName");
+//  enableMouse        = ini.readBool("hid report", "enableMouse");
+//  enableKeyboard     = ini.readBool("hid report", "enableKeyboard");
+//  enableMsc          = ini.readBool("hid report", "enableMsc");
+//  hid_usage_page_val = ini.readInt("hid report", "usagepage");  hid_usage_val      = ini.readInt("hid report", "usage");
+//  ButtonCount        = ini.readInt("hid report", "buttoncount");
+//  HatCount           = ini.readInt("hid report", "hatcount");
+//  AxisCount          = ini.readInt("hid report", "axiscount");
+//  AxisResolution     = ini.readInt("hid report", "axisresolution");
+//  ADCResolution      = ini.readInt("hid report", "adcresolution");
+//}
 
 
 
@@ -498,41 +421,30 @@ T deadzone(T x, T midpoint, uint8_t deadzoneSize) {
 
 
 
-
-
-
-
-
-
-
 //--------------------------------------------------------------------+
 // Device callbacks
 //--------------------------------------------------------------------+
 
 // Invoked when device is mounted
-void tud_mount_cb(void)
-{
+void tud_mount_cb(void) {
   blink_interval_ms = BLINK_MOUNTED;
 }
 
 // Invoked when device is unmounted
-void tud_umount_cb(void)
-{
+void tud_umount_cb(void) {
   blink_interval_ms = BLINK_NOT_MOUNTED;
 }
 
 // Invoked when usb bus is suspended
 // remote_wakeup_en : if host allow us  to perform remote wakeup
 // Within 7ms, device must draw an average of current less than 2.5 mA from bus
-void tud_suspend_cb(bool remote_wakeup_en)
-{
+void tud_suspend_cb(bool remote_wakeup_en) {
   (void) remote_wakeup_en;
   blink_interval_ms = BLINK_SUSPENDED;
 }
 
 // Invoked when usb bus is resumed
-void tud_resume_cb(void)
-{
+void tud_resume_cb(void) {
   blink_interval_ms = tud_mounted() ? BLINK_MOUNTED : BLINK_NOT_MOUNTED;
 }
 
@@ -546,79 +458,75 @@ void tud_resume_cb(void)
 // Callback invoked when received READ10 command.
 // Copy disk's data to buffer (up to bufsize) and
 // return number of copied bytes (must be multiple of block size)
-int32_t msc_read_cb (uint32_t lba, void* buffer, uint32_t bufsize) {
-  (void) bufsize;
-  return -1;//return card.readBlock(lba, (uint8_t*) buffer) ? 512 : -1;
-}
+//int32_t msc_read_cb (uint32_t lba, void* buffer, uint32_t bufsize) {
+//  (void) bufsize;
+//  return -1;//return card.readBlock(lba, (uint8_t*) buffer) ? 512 : -1;
+//}
 
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and 
 // return number of written bytes (must be multiple of block size)
-int32_t msc_write_cb (uint32_t lba, uint8_t* buffer, uint32_t bufsize) {
-  (void) bufsize;
-  return -1;//return card.writeBlock(lba, buffer) ? 512 : -1;
-}
+//int32_t msc_write_cb (uint32_t lba, uint8_t* buffer, uint32_t bufsize) {
+//  (void) bufsize;
+//  return -1;//return card.writeBlock(lba, buffer) ? 512 : -1;
+//}
 
 // Callback invoked when WRITE10 command is completed (status received and accepted by host).
 // used to flush any pending cache.
-void msc_flush_cb (void) {
+//void msc_flush_cb (void) {
   // nothing to do
-}
-
-
+//}
 
 
 // //--------------------------------------------------------------------+
 // // USB CDC
 // //--------------------------------------------------------------------+
-// void cdc_task(void) {
-//   // connected() check for DTR bit
-//   // Most but not all terminal client set this when making connection
-//   // if ( tud_cdc_connected() )
-//   {
-//     // connected and there are data available
-//     if (tud_cdc_available()) {
-//       // read data
-//       char buf[64];
-//       uint32_t count = tud_cdc_read(buf, sizeof(buf));
-//       (void) count;
-
-//       // Echo back
-//       // Note: Skip echo by commenting out write() and write_flush()
-//       // for throughput test e.g
-//       //    $ dd if=/dev/zero of=/dev/ttyACM0 count=10000
-//       tud_cdc_write(buf, count);
-//       tud_cdc_write_flush();
-//     }
-//   }
-// }
+#if CFG_TUD_CDC
+void cdc_task(void) {
+  // connected() check for DTR bit
+  // Most but not all terminal client set this when making connection
+  // if ( tud_cdc_connected() )
+  {
+    // connected and there are data available
+    if (tud_cdc_available()) {
+      // read data
+      char buf[64];
+      uint32_t count = tud_cdc_read(buf, sizeof(buf));
+      (void) count;
+      // Echo back
+      // Note: Skip echo by commenting out write() and write_flush()
+      // for throughput test e.g
+      //    $ dd if=/dev/zero of=/dev/ttyACM0 count=10000
+      tud_cdc_write(buf, count);
+      tud_cdc_write_flush();
+    }
+  }
+}
 
 // // Invoked when cdc when line state changed e.g connected/disconnected
-// void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
-//   (void) itf;
-//   (void) rts;
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
+  (void) itf;
+  (void) rts;
 
-//   // TODO set some indicator
-//   if (dtr) {
-//     // Terminal connected
-//   } else {
-//     // Terminal disconnected
-//   }
-// }
+  // TODO set some indicator
+  if (dtr) {
+    // Terminal connected
+  } else {
+    // Terminal disconnected
+  }
+}
 
 // // Invoked when CDC interface received data from host
-// void tud_cdc_rx_cb(uint8_t itf) {
-//   (void) itf;
-// }
+void tud_cdc_rx_cb(uint8_t itf) {
+  (void) itf;
+}
 
+#endif
 
 // // //--------------------------------------------------------------------+
 // // // USB HID
 // // //--------------------------------------------------------------------+
-
-
-
-
+#if CFG_TUD_HID
 
 /*
   =============
@@ -626,10 +534,20 @@ void msc_flush_cb (void) {
   =============
 */
 
+//uint8_t const * tud_hid_descriptor_report_cb(uint8_t instance)
+//{
+//  (void) instance;
+//  return usb_hid_descriptor;
+//}
+
+
+
+
+
 // Invoked when received GET_REPORT control request
 // Application must fill buffer report's content and return its length.
 // Return zero will cause the stack to STALL request
-uint16_t get_report_callback (uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
+uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
 {
   memset(buffer,0,reqlen);
   printf("get_report type: ");
@@ -660,7 +578,7 @@ uint16_t get_report_callback (uint8_t report_id, hid_report_type_t report_type, 
 
 // Invoked when received SET_REPORT control request or
 // received data on OUT endpoint ( Report ID = 0, Type = 0 )
-void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
+void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
 {
   printf("set_report type: ");
   printf((int)report_type + "\n");
@@ -679,23 +597,6 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
     break;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 // // // THIS WILL BE REWRITTEN
@@ -791,8 +692,8 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
 
 // // Every 10ms, we will sent 1 report for each HID profile (keyboard, mouse etc ..)
 // // tud_hid_report_complete_cb() is used to send the next report after previous one is complete
-// void hid_task(void)
-// {
+void hid_task(void)
+{
 //   // Poll every 10ms
 //   const uint32_t interval_ms = 10;
 //   static uint32_t start_ms = 0;
@@ -813,43 +714,42 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
 //     // Send the 1st of report chain, the rest will be sent by tud_hid_report_complete_cb()
 //     send_hid_report(REPORT_ID_KEYBOARD, btn);
 //   }
-// }
+}
 
 // // Invoked when sent REPORT successfully to host
 // // Application can use this to send the next report
 // // Note: For composite reports, report[0] is report ID
-// void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint16_t len)
-// {
-//   (void) instance;
-//   (void) len;
+void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint16_t len)
+{
+  (void) instance;
+  (void) len;
 
-//   uint8_t next_report_id = report[0] + 1u;
+//  uint8_t next_report_id = report[0] + 1u;
 
-//   if (next_report_id < REPORT_ID_COUNT)
-//   {
-//     send_hid_report(next_report_id, board_button_read());
-//   }
-// }
+//  if (next_report_id < REPORT_ID_COUNT)
+//  {
+//    send_hid_report(next_report_id, board_button_read());
+//  }
+}
 
 // // Invoked when received GET_REPORT control request
 // // Application must fill buffer report's content and return its length.
 // // Return zero will cause the stack to STALL request
-// uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
-// {
-//   // TODO not Implemented
-//   (void) instance;
-//   (void) report_id;
-//   (void) report_type;
-//   (void) buffer;
-//   (void) reqlen;
-
-//   return 0;
-// }
+//uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen)
+//{
+//  // TODO not Implemented
+//  (void) instance;
+//  (void) report_id;
+//  (void) report_type;
+//  (void) buffer;
+//  (void) reqlen;
+//  return 0;
+//}
 
 // // Invoked when received SET_REPORT control request or
 // // received data on OUT endpoint ( Report ID = 0, Type = 0 )
-// void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
-// {
+//void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize)
+//{
 //   (void) instance;
 
 //   if (report_type == HID_REPORT_TYPE_OUTPUT)
@@ -875,24 +775,51 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
 //       }
 //     }
 //   }
-// }
-
+//}
+#endif
 //--------------------------------------------------------------------+
 // BLINKING TASK
 //--------------------------------------------------------------------+
-void led_blinking_task(void)
-{
+void led_blinking_task(void) {
   static uint32_t start_ms = 0;
   static bool led_state = false;
-  for (;;) {
-    // blink is disabled
-    if (!blink_interval_ms) return;
 
-    // Blink every interval ms
-    if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
-    start_ms += blink_interval_ms;
+  // Blink every interval ms
+  if (board_millis() - start_ms < blink_interval_ms) return; // not enough time
+  start_ms += blink_interval_ms;
 
-    board_led_write(led_state);
-    led_state = 1 - led_state; // toggle
-  }
+#if defined(PICO_DEFAULT_LED_PIN)
+  // Just set the GPIO on or off
+  gpio_put(PICO_DEFAULT_LED_PIN, led_state);
+#elif defined(CYW43_WL_GPIO_LED_PIN)
+  // Ask the wifi "driver" to set the GPIO on or off
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
+#endif//  board_led_write(led_state);
+  led_state = 1 - led_state; // toggle
 }
+
+//void led_blinking_task(void)
+//{
+//  static uint32_t start_ms = 0;
+//  static bool led_state = false;
+//  for (;;) {
+//    // blink is disabled
+//    if (!blink_interval_ms) return;
+//
+//    // Blink every interval ms
+////    if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
+//    if ( millis() - start_ms < blink_interval_ms) return; // not enough time
+//    start_ms += blink_interval_ms;
+//
+////    board_led_write(led_state);
+//#if defined(PICO_DEFAULT_LED_PIN)
+//    // Just set the GPIO on or off
+//    gpio_put(PICO_DEFAULT_LED_PIN, led_state);
+//#elif defined(CYW43_WL_GPIO_LED_PIN)
+//    // Ask the wifi "driver" to set the GPIO on or off
+//    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
+//#endif
+//    led_state = 1 - led_state; // toggle
+//  }
+//}
+//

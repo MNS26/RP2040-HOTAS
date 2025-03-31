@@ -1,6 +1,9 @@
-[submodule "no-OS-FatFS"]
-	path = lib/no-OS-FatFS
-	url = https://github.com/carlk3/no-OS-FatFS-SD-SPI-RPi-Pico.git
-[submodule "freertos"]
-	path = freertos
-	url = https://github.com/FreeRTOS/FreeRTOS-Kernel/
+[submodule "no-OS-FatFS-SDIO-SPI"]
+	path = lib/no-OS-FatFS-SDIO-SPI
+	url = https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
+[submodule "MicroINI"]
+	path = lib/MicroINI
+	url = https://github.com/kimci86/MicroIni.git
+[submodule "lib/TinyUSB"]
+	path = lib/TinyUSB
+	url = https://github.com/MNS26/tinyusb

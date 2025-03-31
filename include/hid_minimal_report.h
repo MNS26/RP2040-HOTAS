@@ -1,7 +1,7 @@
 
 #pragma once
 #include <assert.h>
-
+/*
 enum {
   HID_USAGE_PAGE_UNDEFINED       = 0x00,
   HID_USAGE_PAGE_DESKTOP         = 0x01,
@@ -198,7 +198,7 @@ enum
   HID_USAGE_GAME_3D_CONTROLLER                            = 0x01,
   HID_USAGE_GAME_PINBAL_DEVICE                            = 0x02,
   HID_USAGE_GAME_GUN_DEVICE                               = 0x03,
-  /* 04-1f RESERVED*/
+  // 04-1f RESERVED
   HID_USAGE_GAME_POINT_OF_VIEW                            = 0x20,
   HID_USAGE_GAME_TURN_LR                                  = 0x21,
   HID_USAGE_GAME_PITCH_FB                                 = 0x22,
@@ -223,9 +223,9 @@ enum
   HID_USAGE_GAME_GUN_AUTOMATIC                            = 0x35,
   HID_USAGE_GAME_GUN_SAFETY                               = 0x36,
   HID_USAGE_GAME_GAMEPAD_FIRE_JUMP                        = 0x37,
-  /* NO 38 */
+  // NO 38
   HID_USAGE_GAME_GAMEPAD_TRIGGER                          = 0x39
-  /* 3A-FFFF RESERVED*/
+  // 3A-FFFF RESERVED
 };
 
 /// HID Usage Table: Consumer Page (0x0C)
@@ -286,7 +286,7 @@ enum
   // Mouse Horizontal scroll
   HID_USAGE_CONSUMER_AC_PAN                            = 0x0238,
 };
-
+*/
 #define HID_DATA             (0<<0)
 #define HID_CONSTANT         (1<<0) //1
 #define HID_ARRAY            (0<<1)
@@ -305,6 +305,8 @@ enum
 #define HID_VOLATILE         (1<<7) //128
 #define HID_BITFIELD         (0<<8)
 #define HID_BUFFERED_BYTES   (1<<8) //256
+
+#define MAX_REPORT_ID 31
 
 //#define ENCODE_1(x)          x
 //#define ENCODE_2(x)          (x & 0xff), (x >> 8)
@@ -337,7 +339,6 @@ typedef struct {
   uint input_variable;
 } output;
 
-#define MAX_REPORT_ID 31
 #define MAX_OUTPUTS 256
 output outputs[MAX_REPORT_ID][MAX_OUTPUTS];
 unsigned int output_count[MAX_REPORT_ID];
