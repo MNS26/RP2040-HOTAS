@@ -11,37 +11,34 @@
             "statusBarVisibility": "hidden"
         }
     },
+    "cmake.clearOutputBeforeBuild": true,
     "cmake.configureOnEdit": false,
     "cmake.automaticReconfigure": false,
     "cmake.configureOnOpen": false,
     "cmake.generator": "Ninja",
-    "cmake.cmakePath": "${userHome}/.pico-sdk/cmake/v3.28.6/bin/cmake",
+    "cmake.cmakePath": "${userHome}/.pico-sdk/cmake/v3.31.5/bin/cmake",
     "C_Cpp.debugShortcut": false,
     "terminal.integrated.env.windows": {
-        "PICO_SDK_PATH": "${env:USERPROFILE}/.pico-sdk/sdk/2.0.0",
-        "PICO_TOOLCHAIN_PATH": "${env:USERPROFILE}/.pico-sdk/toolchain/13_3_Rel1",
-        "Path": "${env:USERPROFILE}/.pico-sdk/toolchain/13_3_Rel1/bin;${env:USERPROFILE}/.pico-sdk/picotool/2.0.0/picotool;${env:USERPROFILE}/.pico-sdk/cmake/v3.28.6/bin;${env:USERPROFILE}/.pico-sdk/ninja/v1.12.1;${env:PATH}"
+        "PICO_SDK_PATH": "${env:USERPROFILE}/.pico-sdk/sdk/2.1.1",
+        "PICO_TOOLCHAIN_PATH": "${env:USERPROFILE}/.pico-sdk/toolchain/14_2_Rel1",
+        "Path": "${env:USERPROFILE}/.pico-sdk/toolchain/14_2_Rel1/bin;${env:USERPROFILE}/.pico-sdk/picotool/2.1.1/picotool;${env:USERPROFILE}/.pico-sdk/cmake/v3.31.5/bin;${env:USERPROFILE}/.pico-sdk/ninja/v1.12.1;${env:PATH}"
     },
     "terminal.integrated.env.osx": {
-        "PICO_SDK_PATH": "${env:HOME}/.pico-sdk/sdk/2.0.0",
-        "PICO_TOOLCHAIN_PATH": "${env:HOME}/.pico-sdk/toolchain/13_3_Rel1",
-        "PATH": "${env:HOME}/.pico-sdk/toolchain/13_3_Rel1/bin:${env:HOME}/.pico-sdk/picotool/2.0.0/picotool:${env:HOME}/.pico-sdk/cmake/v3.28.6/bin:${env:HOME}/.pico-sdk/ninja/v1.12.1:${env:PATH}"
+        "PICO_SDK_PATH": "${env:HOME}/.pico-sdk/sdk/2.1.1",
+        "PICO_TOOLCHAIN_PATH": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1",
+        "PATH": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1/bin:${env:HOME}/.pico-sdk/picotool/2.1.1/picotool:${env:HOME}/.pico-sdk/cmake/v3.31.5/bin:${env:HOME}/.pico-sdk/ninja/v1.12.1:${env:PATH}"
     },
     "terminal.integrated.env.linux": {
-        "PICO_SDK_PATH": "${env:HOME}/.pico-sdk/sdk/2.0.0",
-        "PICO_TOOLCHAIN_PATH": "${env:HOME}/.pico-sdk/toolchain/13_3_Rel1",
-        "PATH": "${env:HOME}/.pico-sdk/toolchain/13_3_Rel1/bin:${env:HOME}/.pico-sdk/picotool/2.0.0/picotool:${env:HOME}/.pico-sdk/cmake/v3.28.6/bin:${env:HOME}/.pico-sdk/ninja/v1.12.1:${env:PATH}"
+        "PICO_SDK_PATH": "${env:HOME}/.pico-sdk/sdk/2.1.1",
+        "PICO_TOOLCHAIN_PATH": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1",
+        "PATH": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1/bin:${env:HOME}/.pico-sdk/picotool/2.1.1/picotool:${env:HOME}/.pico-sdk/cmake/v3.31.5/bin:${env:HOME}/.pico-sdk/ninja/v1.12.1:${env:PATH}"
     },
     "raspberry-pi-pico.cmakeAutoConfigure": true,
     "raspberry-pi-pico.useCmakeTools": false,
-    "raspberry-pi-pico.cmakePath": "${HOME}/.pico-sdk/cmake/v3.28.6/bin/cmake",
+    "raspberry-pi-pico.cmakePath": "${HOME}/.pico-sdk/cmake/v3.31.5/bin/cmake",
     "raspberry-pi-pico.ninjaPath": "${HOME}/.pico-sdk/ninja/v1.12.1/ninja",
     "files.associations": {
         "*.embeddedhtml": "html",
-        "stdlib.h": "c",
-        "type_traits": "cpp",
-        "initializer_list": "cpp",
-        "compare": "cpp",
         "array": "cpp",
         "atomic": "cpp",
         "bit": "cpp",
@@ -49,6 +46,7 @@
         "cctype": "cpp",
         "clocale": "cpp",
         "cmath": "cpp",
+        "compare": "cpp",
         "concepts": "cpp",
         "cstdarg": "cpp",
         "cstddef": "cpp",
@@ -73,7 +71,9 @@
         "string_view": "cpp",
         "system_error": "cpp",
         "tuple": "cpp",
+        "type_traits": "cpp",
         "utility": "cpp",
+        "initializer_list": "cpp",
         "iosfwd": "cpp",
         "limits": "cpp",
         "new": "cpp",
@@ -82,8 +82,58 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "cinttypes": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "iostream": "cpp",
+        "istream": "cpp",
+        "hw_config.h": "c",
+        "sd_card.h": "c",
+        "ff.h": "c",
+        "cstring": "cpp",
+        "ini.h": "c",
+        "fstream": "cpp",
+        "sstream": "cpp",
+        "yaml.hpp": "c",
+        "codecvt": "c",
+        "ctime": "c",
+        "ratio": "c",
+        "iomanip": "c",
+        "charconv": "cpp",
+        "tusb_option.h": "c",
+        "tusb_compiler.h": "c",
+        "mtp_device.h": "c",
+        "tusb.h": "c",
+        "ranges": "c",
+        "span": "c",
+        "format": "c",
+        "ptp_device.h": "c",
+        "ptp_host.h": "c",
+        "usbd_pvt.h": "c",
+        "usbd.h": "c",
+        "tusb_private.h": "c",
+        "dcd.h": "c",
+        "tusb_common.h": "c",
+        "tusb_config.h": "c",
+        "tusb_mcu.h": "c"
     },
-    "editor.tabSize": 2
-    
+    "cmake.statusbar.advanced": {
+        "debug": {
+            "visibility": "hidden"
+        },
+        "launch": {
+            "visibility": "hidden"
+        },
+        "build": {
+            "visibility": "default"
+        },
+        "buildTarget": {
+            "visibility": "hidden"
+        }
+    },
+    "cmake.buildBeforeRun": true,
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cortex-debug.openocdPath": "/usr/bin/openocd",
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.dimInactiveRegions": true,
+    "editor.tabSize":  2,
+    "editor.insertSpaces": true
 }

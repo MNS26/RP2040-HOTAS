@@ -20,7 +20,7 @@
         {
             "label": "Run Project",
             "type": "process",
-            "command": "${env:HOME}/.pico-sdk/picotool/2.0.0/picotool/picotool",
+            "command": "${env:HOME}/.pico-sdk/picotool/2.1.1/picotool/picotool",
             "args": [
                 "load",
                 "${command:raspberry-pi-pico.launchTargetPath}",
@@ -32,7 +32,7 @@
             },
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.0.0/picotool/picotool.exe"
+                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.1.1/picotool/picotool.exe"
             }
         },
         {
@@ -53,6 +53,18 @@
             "windows": {
                 "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
             }
-        }
+        },
+        {
+            "type": "shell",
+            "label": "build test program",
+            "command": "/usr/bin/cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/desktop test/"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/desktop test/"
+            }
+        },
     ]
 }
